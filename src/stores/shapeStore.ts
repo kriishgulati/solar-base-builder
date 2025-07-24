@@ -104,9 +104,23 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   },
 
   mergeShapes: (shapeIds) => {
-    // Implementation for merging shapes would go here
-    // This is a complex operation that would need geometric calculations
-    console.log('Merging shapes:', shapeIds);
+    set((state) => {
+      const shapesToMerge = state.shapes.filter(shape => shapeIds.includes(shape.id));
+      const otherShapes = state.shapes.filter(shape => !shapeIds.includes(shape.id));
+      
+      if (shapesToMerge.length < 2) return state;
+      
+      // Mark shapes as connected
+      const mergedShapes = shapesToMerge.map(shape => ({
+        ...shape,
+        connectedTo: shapeIds.filter(id => id !== shape.id),
+        merged: true
+      }));
+      
+      return {
+        shapes: [...otherShapes, ...mergedShapes]
+      };
+    });
   },
 
   clearCanvas: () => {

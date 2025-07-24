@@ -207,8 +207,8 @@ export const DesignCanvas = () => {
       {/* Konva Canvas */}
       <Stage
         ref={stageRef}
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={800}
+        height={600}
         scaleX={canvasScale}
         scaleY={canvasScale}
         offsetX={canvasOffset.x}

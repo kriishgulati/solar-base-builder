@@ -38,7 +38,7 @@ export const ShapeToolbar = () => {
   const [rotation, setRotation] = useState(0);
 
   const handleAddShape = () => {
-    const basePosition = { x: 100, y: 100 };
+    const basePosition = { x: 2, y: 2 }; // 2 meters from origin
     
     let shapeData;
     switch (activeShapeType) {
