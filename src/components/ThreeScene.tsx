@@ -13,27 +13,27 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
   const geometry = useMemo(() => {
     if (shapes.length === 0) return new THREE.BoxGeometry(1, 1, 1);
 
-    // Create a combined shape from all shapes
-    let combinedShape = new THREE.Shape();
+    // Create individual shape geometries
+    const shapeGeometries: THREE.ExtrudeGeometry[] = [];
     
-    shapes.forEach((shape, index) => {
-      let shapeGeometry: THREE.Shape;
+    shapes.forEach((shape) => {
+      let shapeOutline: THREE.Shape;
       
       if (shape.type === 'rectangle' || shape.type === 'square') {
         const width = (shape.dimensions.width || 1);
-        const height = (shape.dimensions.height || shape.dimensions.width || 1);
+        const shapeHeight = (shape.dimensions.height || shape.dimensions.width || 1);
         
-        shapeGeometry = new THREE.Shape();
-        shapeGeometry.moveTo(shape.position.x, shape.position.y);
-        shapeGeometry.lineTo(shape.position.x + width, shape.position.y);
-        shapeGeometry.lineTo(shape.position.x + width, shape.position.y + height);
-        shapeGeometry.lineTo(shape.position.x, shape.position.y + height);
-        shapeGeometry.lineTo(shape.position.x, shape.position.y);
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(shape.position.x, shape.position.y);
+        shapeOutline.lineTo(shape.position.x + width, shape.position.y);
+        shapeOutline.lineTo(shape.position.x + width, shape.position.y + shapeHeight);
+        shapeOutline.lineTo(shape.position.x, shape.position.y + shapeHeight);
+        shapeOutline.lineTo(shape.position.x, shape.position.y);
         
       } else if (shape.type === 'circle') {
         const radius = shape.dimensions.radius || 1;
-        shapeGeometry = new THREE.Shape();
-        shapeGeometry.absarc(
+        shapeOutline = new THREE.Shape();
+        shapeOutline.absarc(
           shape.position.x + radius, 
           shape.position.y + radius, 
           radius, 
@@ -43,37 +43,83 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
         );
       } else {
         // Default to rectangle if type is unknown
-        shapeGeometry = new THREE.Shape();
-        shapeGeometry.moveTo(shape.position.x, shape.position.y);
-        shapeGeometry.lineTo(shape.position.x + 1, shape.position.y);
-        shapeGeometry.lineTo(shape.position.x + 1, shape.position.y + 1);
-        shapeGeometry.lineTo(shape.position.x, shape.position.y + 1);
-        shapeGeometry.lineTo(shape.position.x, shape.position.y);
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(shape.position.x, shape.position.y);
+        shapeOutline.lineTo(shape.position.x + 1, shape.position.y);
+        shapeOutline.lineTo(shape.position.x + 1, shape.position.y + 1);
+        shapeOutline.lineTo(shape.position.x, shape.position.y + 1);
+        shapeOutline.lineTo(shape.position.x, shape.position.y);
       }
 
-      if (index === 0) {
-        combinedShape = shapeGeometry;
-      } else {
-        // For now, we'll just add shapes separately
-        // In a real implementation, you'd want to use CSG operations
-      }
+      const extrudeSettings = {
+        depth: height,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: 0.05,
+        bevelSegments: 2,
+      };
+
+      const extrudedGeometry = new THREE.ExtrudeGeometry(shapeOutline, extrudeSettings);
+      shapeGeometries.push(extrudedGeometry);
     });
 
-    const extrudeSettings = {
-      depth: height,
-      bevelEnabled: false,
-    };
+    // Merge all geometries into one
+    if (shapeGeometries.length === 1) {
+      return shapeGeometries[0];
+    } else if (shapeGeometries.length > 1) {
+      // Create a combined geometry
+      const mergedGeometry = new THREE.BufferGeometry();
+      const geometries = shapeGeometries.map(geom => geom);
+      
+      // Use BufferGeometryUtils to merge geometries
+      const combinedGeometry = geometries.reduce((acc, curr) => {
+        const merged = new THREE.BufferGeometry();
+        const positions: number[] = [];
+        const indices: number[] = [];
+        
+        // Get positions from accumulated geometry
+        if (acc.attributes.position) {
+          const accPositions = acc.attributes.position.array;
+          positions.push(...Array.from(accPositions));
+        }
+        
+        // Get positions from current geometry
+        if (curr.attributes.position) {
+          const currPositions = curr.attributes.position.array;
+          const offset = positions.length / 3;
+          positions.push(...Array.from(currPositions));
+          
+          // Add indices with offset
+          if (curr.index) {
+            const currIndices = curr.index.array;
+            indices.push(...Array.from(currIndices).map(i => i + offset));
+          }
+        }
+        
+        merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        if (indices.length > 0) {
+          merged.setIndex(indices);
+        }
+        
+        merged.computeVertexNormals();
+        return merged;
+      }, new THREE.BufferGeometry());
+      
+      return combinedGeometry;
+    }
 
-    return new THREE.ExtrudeGeometry(combinedShape, extrudeSettings);
+    return new THREE.BoxGeometry(1, 1, 1);
   }, [shapes, height]);
 
   return (
-    <mesh geometry={geometry} position={[0, height / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh geometry={geometry} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
       <meshStandardMaterial 
         color="hsl(35, 91%, 55%)" 
         transparent 
-        opacity={0.8}
+        opacity={0.9}
         side={THREE.DoubleSide}
+        roughness={0.3}
+        metalness={0.1}
       />
     </mesh>
   );
