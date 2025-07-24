@@ -213,16 +213,19 @@ export const ShapeToolbar = () => {
 
         <Separator />
 
+        {/* Merge Mode Indicator */}
+        {shapeMergeEnabled && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="text-sm font-medium text-green-800">Connection Mode Active</div>
+            <div className="text-xs text-green-600">Click two shapes to connect them</div>
+          </div>
+        )}
+
         {/* Utility Actions */}
         <div className="space-y-2">
           <Button variant="outline" onClick={clearCanvas} className="w-full" size="sm">
             <Trash2 size={16} className="mr-2" />
             Clear Canvas
-          </Button>
-          
-          <Button variant="default" className="w-full bg-accent hover:bg-accent/90" size="sm">
-            <Download size={16} className="mr-2" />
-            Export to 3D
           </Button>
         </div>
       </div>

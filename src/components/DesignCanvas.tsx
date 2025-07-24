@@ -23,6 +23,7 @@ export const DesignCanvas = () => {
     setCanvasScale,
     canvasOffset,
     setCanvasOffset,
+    shapeMergeEnabled,
   } = useShapeStore();
 
   // Handle shape selection
@@ -50,8 +51,17 @@ export const DesignCanvas = () => {
     }
   };
 
-  const handleShapeClick = (shapeId: string) => {
-    selectShape(shapeId);
+  const handleShapeClick = (shapeId: string, e: any) => {
+    e.cancelBubble = true;
+    
+    // Handle shape connection if merge mode is enabled
+    if (shapeMergeEnabled && selectedShapeId && selectedShapeId !== shapeId) {
+      const { mergeShapes } = useShapeStore.getState();
+      mergeShapes([selectedShapeId, shapeId]);
+      selectShape(null);
+    } else {
+      selectShape(shapeId);
+    }
   };
 
   const handleShapeChange = (shapeId: string, newAttrs: any) => {
@@ -102,11 +112,19 @@ export const DesignCanvas = () => {
       y: shape.position.y * PIXELS_PER_METER,
       rotation: shape.rotation,
       draggable: true,
-      onClick: () => handleShapeClick(shape.id),
+      onClick: (e: any) => handleShapeClick(shape.id, e),
       onDragEnd: (e: any) => handleShapeChange(shape.id, e.target.attrs),
       onTransformEnd: (e: any) => handleShapeChange(shape.id, e.target.attrs),
-      fill: selectedShapeId === shape.id ? 'hsl(35 91% 55%)' : 'hsl(35 91% 55% / 0.8)',
-      stroke: selectedShapeId === shape.id ? 'hsl(213 100% 60%)' : 'hsl(35 91% 55%)',
+      fill: shape.merged 
+        ? 'hsl(142 76% 55% / 0.8)' 
+        : selectedShapeId === shape.id 
+          ? 'hsl(35 91% 55%)' 
+          : 'hsl(35 91% 55% / 0.8)',
+      stroke: shape.merged 
+        ? 'hsl(142 76% 55%)' 
+        : selectedShapeId === shape.id 
+          ? 'hsl(213 100% 60%)' 
+          : 'hsl(35 91% 55%)',
       strokeWidth: selectedShapeId === shape.id ? 3 : 2,
     };
 
@@ -217,6 +235,29 @@ export const DesignCanvas = () => {
         onTap={handleStageClick}
       >
         <Layer>
+          {/* Render connection lines first */}
+          {shapes.map(shape => 
+            shape.connectedTo.map(connectedId => {
+              const connectedShape = shapes.find(s => s.id === connectedId);
+              if (!connectedShape) return null;
+              
+              return (
+                <Line
+                  key={`${shape.id}-${connectedId}`}
+                  points={[
+                    shape.position.x * PIXELS_PER_METER + (shape.dimensions.width || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.height || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    connectedShape.position.x * PIXELS_PER_METER + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.height || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                  ]}
+                  stroke="hsl(142 76% 55%)"
+                  strokeWidth={3}
+                  dash={[5, 5]}
+                />
+              );
+            })
+          ).flat()}
+          
           {shapes.map(renderShape)}
           <Transformer
             ref={transformerRef}
