@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ShapeToolbar } from '@/components/ShapeToolbar';
-import { DesignCanvas } from '@/components/DesignCanvas';
+import { SimpleCanvas } from '@/components/SimpleCanvas';
 import { Export3DModal } from '@/components/Export3DModal';
 import { ThreeScene } from '@/components/ThreeScene';
 import { useShapeStore } from '@/stores/shapeStore';
@@ -83,7 +83,7 @@ export const SiteBaseDefinition = () => {
 
         {/* Right Panel - Canvas */}
         <div className="flex-1 p-4">
-          <DesignCanvas />
+          <SimpleCanvas />
         </div>
       </div>
 
