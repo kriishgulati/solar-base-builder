@@ -140,16 +140,26 @@ export const ThreeScene = ({ shapes, buildingHeight }: ThreeSceneProps) => {
   return (
     <div className="w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
       <Canvas
-        camera={{ position: [20, 20, 20], fov: 50 }}
+        camera={{ position: [15, 12, 15], fov: 50 }}
         shadows
       >
+        {/* Ground plane for better visibility */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
+          <planeGeometry args={[100, 100]} />
+          <meshLambertMaterial color="#90EE90" />
+        </mesh>
+        
         <ambientLight intensity={0.6} />
         <directionalLight 
-          position={[10, 10, 5]} 
-          intensity={1} 
+          position={[20, 20, 10]} 
+          intensity={1.2} 
           castShadow 
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
+          shadow-camera-left={-50}
+          shadow-camera-right={50}
+          shadow-camera-top={50}
+          shadow-camera-bottom={-50}
         />
         
         <Environment preset="city" />
@@ -159,21 +169,24 @@ export const ThreeScene = ({ shapes, buildingHeight }: ThreeSceneProps) => {
         <Grid 
           infiniteGrid 
           cellSize={1} 
-          cellThickness={0.5} 
-          cellColor="hsl(213, 30%, 60%)" 
-          sectionSize={10} 
-          sectionThickness={1} 
-          sectionColor="hsl(213, 50%, 40%)" 
-          fadeDistance={50} 
+          cellThickness={0.8} 
+          cellColor="#4a5568" 
+          sectionSize={5} 
+          sectionThickness={1.5} 
+          sectionColor="#2d3748" 
+          fadeDistance={80} 
           fadeStrength={1}
+          position={[0, 0, 0]}
         />
         
         <OrbitControls 
           enablePan={true} 
           enableZoom={true} 
           enableRotate={true}
-          minDistance={5}
-          maxDistance={100}
+          minDistance={3}
+          maxDistance={150}
+          target={[0, 0, 0]}
+          maxPolarAngle={Math.PI / 2.1}
         />
       </Canvas>
     </div>

@@ -224,10 +224,20 @@ export const SimpleCanvas = () => {
         
         const shape = shapes.find(s => s.id === shapeId);
         if (shape) {
-          setDragOffset({
-            x: x - shape.position.x * PIXELS_PER_METER * canvasScale,
-            y: y - shape.position.y * PIXELS_PER_METER * canvasScale,
-          });
+          if (shape.type === 'line') {
+            // For lines, calculate offset from the midpoint
+            const midX = (shape.startPoint!.x + shape.endPoint!.x) / 2;
+            const midY = (shape.startPoint!.y + shape.endPoint!.y) / 2;
+            setDragOffset({
+              x: x - midX * PIXELS_PER_METER * canvasScale,
+              y: y - midY * PIXELS_PER_METER * canvasScale,
+            });
+          } else {
+            setDragOffset({
+              x: x - shape.position.x * PIXELS_PER_METER * canvasScale,
+              y: y - shape.position.y * PIXELS_PER_METER * canvasScale,
+            });
+          }
         }
       }
     } else {
@@ -244,12 +254,38 @@ export const SimpleCanvas = () => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    const newX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
-    const newY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+    const shape = shapes.find(s => s.id === dragShape);
+    if (!shape) return;
     
-    updateShape(dragShape, {
-      position: { x: Math.max(0, newX), y: Math.max(0, newY) }
-    });
+    if (shape.type === 'line') {
+      // For lines, move both start and end points
+      const newMidX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
+      const newMidY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+      
+      const currentMidX = (shape.startPoint!.x + shape.endPoint!.x) / 2;
+      const currentMidY = (shape.startPoint!.y + shape.endPoint!.y) / 2;
+      
+      const deltaX = newMidX - currentMidX;
+      const deltaY = newMidY - currentMidY;
+      
+      updateShape(dragShape, {
+        startPoint: {
+          x: Math.max(0, shape.startPoint!.x + deltaX),
+          y: Math.max(0, shape.startPoint!.y + deltaY)
+        },
+        endPoint: {
+          x: Math.max(0, shape.endPoint!.x + deltaX),
+          y: Math.max(0, shape.endPoint!.y + deltaY)
+        }
+      });
+    } else {
+      const newX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
+      const newY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+      
+      updateShape(dragShape, {
+        position: { x: Math.max(0, newX), y: Math.max(0, newY) }
+      });
+    }
   };
 
   const handleMouseUp = () => {
