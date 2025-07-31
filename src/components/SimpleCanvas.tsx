@@ -84,63 +84,97 @@ export const SimpleCanvas = () => {
       const isSelected = selectedShapeId === shape.id;
       const isMerged = shape.merged;
       
-      ctx.fillStyle = isMerged 
-        ? 'hsl(142 76% 55% / 0.8)' 
-        : isSelected 
+      // Create a combined shape path for merged shapes
+      if (isMerged && shape.connectedTo.length > 0) {
+        ctx.fillStyle = 'hsl(142 76% 55% / 0.8)';
+        ctx.strokeStyle = 'hsl(142 76% 55%)';
+        
+        // Draw the main shape and all connected shapes as one combined shape
+        const allConnectedShapes = [shape, ...shapes.filter(s => shape.connectedTo.includes(s.id))];
+        
+        ctx.beginPath();
+        allConnectedShapes.forEach(connectedShape => {
+          if (connectedShape.type === 'line') {
+            const startX = connectedShape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+            const startY = connectedShape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+            const endX = connectedShape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+            const endY = connectedShape.endPoint!.y * PIXELS_PER_METER * canvasScale;
+            
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+          } else {
+            const x = connectedShape.position.x * PIXELS_PER_METER * canvasScale;
+            const y = connectedShape.position.y * PIXELS_PER_METER * canvasScale;
+            
+            if (connectedShape.type === 'circle') {
+              const radius = (connectedShape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+              ctx.moveTo(x + radius * 2, y + radius);
+              ctx.arc(x + radius, y + radius, radius, 0, 2 * Math.PI);
+            } else {
+              const width = (connectedShape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+              const height = (connectedShape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+              ctx.rect(x, y, width, height);
+            }
+          }
+        });
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Draw individual shapes
+        ctx.fillStyle = isSelected 
           ? 'hsl(35 91% 55%)' 
           : 'hsl(35 91% 55% / 0.8)';
       
-      ctx.strokeStyle = isMerged 
-        ? 'hsl(142 76% 55%)' 
-        : isSelected 
+        ctx.strokeStyle = isSelected 
           ? 'hsl(213 100% 60%)' 
           : 'hsl(35 91% 55%)';
       
-      ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.lineWidth = isSelected ? 3 : 2;
 
-      if (shape.type === 'line') {
-        // Draw line from start to end point
-        const startX = shape.startPoint!.x * PIXELS_PER_METER * canvasScale;
-        const startY = shape.startPoint!.y * PIXELS_PER_METER * canvasScale;
-        const endX = shape.endPoint!.x * PIXELS_PER_METER * canvasScale;
-        const endY = shape.endPoint!.y * PIXELS_PER_METER * canvasScale;
+        if (shape.type === 'line') {
+          // Draw line from start to end point
+          const startX = shape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+          const startY = shape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+          const endX = shape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+          const endY = shape.endPoint!.y * PIXELS_PER_METER * canvasScale;
         
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        
-        // Draw endpoints as small circles
-        ctx.beginPath();
-        ctx.arc(startX, startY, 4, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(endX, endY, 4, 0, 2 * Math.PI);
-        ctx.fill();
-      } else {
-        const x = shape.position.x * PIXELS_PER_METER * canvasScale;
-        const y = shape.position.y * PIXELS_PER_METER * canvasScale;
-        
-        ctx.save();
-        ctx.translate(x, y);
-        if (shape.rotation) {
-          ctx.rotate((shape.rotation * Math.PI) / 180);
-        }
-
-        if (shape.type === 'circle') {
-          const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
           ctx.beginPath();
-          ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
-          ctx.fill();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
           ctx.stroke();
+        
+          // Draw endpoints as small circles
+          ctx.beginPath();
+          ctx.arc(startX, startY, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(endX, endY, 4, 0, 2 * Math.PI);
+          ctx.fill();
         } else {
-          const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-          const height = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-          ctx.fillRect(0, 0, width, height);
-          ctx.strokeRect(0, 0, width, height);
-        }
+          const x = shape.position.x * PIXELS_PER_METER * canvasScale;
+          const y = shape.position.y * PIXELS_PER_METER * canvasScale;
+        
+          ctx.save();
+          ctx.translate(x, y);
+          if (shape.rotation) {
+            ctx.rotate((shape.rotation * Math.PI) / 180);
+          }
 
-        ctx.restore();
+          if (shape.type === 'circle') {
+            const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+            const height = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeRect(0, 0, width, height);
+          }
+
+          ctx.restore();
+        }
       }
     });
   };

@@ -39,6 +39,7 @@ interface ShapeStore {
   setShapeMergeEnabled: (enabled: boolean) => void;
   mergeShapes: (shapeIds: string[]) => void;
   clearCanvas: () => void;
+  checkAndMergeConnectedShapes: () => void;
 }
 
 export const useShapeStore = create<ShapeStore>((set, get) => ({
@@ -61,6 +62,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
       shapes: [...state.shapes, newShape],
       selectedShapeId: newShape.id,
     }));
+    get().checkAndMergeConnectedShapes();
   },
 
   updateShape: (id, updates) => {
@@ -69,6 +71,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
         shape.id === id ? { ...shape, ...updates } : shape
       ),
     }));
+    get().checkAndMergeConnectedShapes();
   },
 
   deleteShape: (id) => {
@@ -117,12 +120,76 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
         shapes: [...otherShapes, ...mergedShapes]
       };
     });
+    get().checkAndMergeConnectedShapes();
   },
 
   clearCanvas: () => {
     set({
       shapes: [],
       selectedShapeId: null,
+    });
+  },
+
+  checkAndMergeConnectedShapes: () => {
+    set((state) => {
+      const TOLERANCE = 0.5; // 0.5 meter tolerance for connection detection
+      
+      // Helper function to check if two points are close
+      const arePointsClose = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
+        const distance = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        return distance <= TOLERANCE;
+      };
+
+      // Helper function to get shape endpoints/boundaries
+      const getShapePoints = (shape: Shape) => {
+        if (shape.type === 'line') {
+          return [shape.startPoint!, shape.endPoint!];
+        } else if (shape.type === 'rectangle' || shape.type === 'square') {
+          const { x, y } = shape.position;
+          const width = shape.dimensions.width || 0;
+          const length = shape.dimensions.length || shape.dimensions.width || 0;
+          return [
+            { x, y },
+            { x: x + width, y },
+            { x: x + width, y: y + length },
+            { x, y: y + length }
+          ];
+        } else if (shape.type === 'circle') {
+          const { x, y } = shape.position;
+          const radius = shape.dimensions.radius || 0;
+          return [{ x: x + radius, y: y + radius }]; // Center point for simplicity
+        }
+        return [];
+      };
+
+      // Find connected shapes
+      const updatedShapes = state.shapes.map(shape => {
+        const shapePoints = getShapePoints(shape);
+        const connectedShapeIds: string[] = [];
+        
+        state.shapes.forEach(otherShape => {
+          if (shape.id === otherShape.id) return;
+          
+          const otherShapePoints = getShapePoints(otherShape);
+          
+          // Check if any points are close enough to be considered connected
+          const isConnected = shapePoints.some(point1 => 
+            otherShapePoints.some(point2 => arePointsClose(point1, point2))
+          );
+          
+          if (isConnected) {
+            connectedShapeIds.push(otherShape.id);
+          }
+        });
+        
+        return {
+          ...shape,
+          connectedTo: connectedShapeIds,
+          merged: connectedShapeIds.length > 0
+        };
+      });
+      
+      return { ...state, shapes: updatedShapes };
     });
   },
 }));
