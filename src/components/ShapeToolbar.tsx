@@ -22,8 +22,6 @@ export const ShapeToolbar = () => {
   const {
     activeShapeType,
     setActiveShapeType,
-    isDrawingMode,
-    setDrawingMode,
     shapeMergeEnabled,
     setShapeMergeEnabled,
     addShape,
@@ -32,8 +30,9 @@ export const ShapeToolbar = () => {
 
   const [dimensions, setDimensions] = useState({
     width: 10,
-    height: 10,
+    length: 10,
     radius: 5,
+    lineLength: 10,
   });
   const [rotation, setRotation] = useState(0);
 
@@ -45,7 +44,7 @@ export const ShapeToolbar = () => {
       case 'rectangle':
         shapeData = {
           type: 'rectangle' as const,
-          dimensions: { width: dimensions.width, height: dimensions.height },
+          dimensions: { width: dimensions.width, length: dimensions.length },
           position: basePosition,
           rotation,
         };
@@ -53,7 +52,7 @@ export const ShapeToolbar = () => {
       case 'square':
         shapeData = {
           type: 'square' as const,
-          dimensions: { width: dimensions.width, height: dimensions.width },
+          dimensions: { width: dimensions.width, length: dimensions.width },
           position: basePosition,
           rotation,
         };
@@ -64,6 +63,19 @@ export const ShapeToolbar = () => {
           dimensions: { radius: dimensions.radius },
           position: basePosition,
           rotation,
+        };
+        break;
+      case 'line':
+        const angle = (rotation * Math.PI) / 180;
+        const endX = basePosition.x + (dimensions.lineLength * Math.cos(angle));
+        const endY = basePosition.y + (dimensions.lineLength * Math.sin(angle));
+        shapeData = {
+          type: 'line' as const,
+          dimensions: { lineLength: dimensions.lineLength },
+          position: basePosition,
+          rotation,
+          startPoint: basePosition,
+          endPoint: { x: endX, y: endY },
         };
         break;
       default:
@@ -77,7 +89,7 @@ export const ShapeToolbar = () => {
     { type: 'rectangle', icon: RectangleHorizontal, label: 'Rectangle' },
     { type: 'square', icon: Square, label: 'Square' },
     { type: 'circle', icon: Circle, label: 'Circle' },
-    { type: 'polygon', icon: PenTool, label: 'Custom Shape' },
+    { type: 'line', icon: PenTool, label: 'Line Tool' },
   ] as const;
 
   return (
@@ -129,6 +141,19 @@ export const ShapeToolbar = () => {
                 step="0.1"
               />
             </div>
+          ) : activeShapeType === 'line' ? (
+            <div className="space-y-2">
+              <Label htmlFor="lineLength" className="text-xs text-muted-foreground">Line Length</Label>
+              <Input
+                id="lineLength"
+                type="number"
+                value={dimensions.lineLength}
+                onChange={(e) => setDimensions(prev => ({ ...prev, lineLength: Number(e.target.value) }))}
+                className="h-9"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
@@ -145,12 +170,12 @@ export const ShapeToolbar = () => {
               </div>
               {activeShapeType === 'rectangle' && (
                 <div className="space-y-2">
-                  <Label htmlFor="height" className="text-xs text-muted-foreground">Height</Label>
+                  <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
                   <Input
-                    id="height"
+                    id="length"
                     type="number"
-                    value={dimensions.height}
-                    onChange={(e) => setDimensions(prev => ({ ...prev, height: Number(e.target.value) }))}
+                    value={dimensions.length}
+                    onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
                     className="h-9"
                     min="0.1"
                     step="0.1"
@@ -200,15 +225,6 @@ export const ShapeToolbar = () => {
             />
           </div>
 
-          {/* Drawing Mode Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="drawing-toggle" className="text-sm text-foreground">Drawing Mode</Label>
-            <Switch
-              id="drawing-toggle"
-              checked={isDrawingMode}
-              onCheckedChange={setDrawingMode}
-            />
-          </div>
         </div>
 
         <Separator />

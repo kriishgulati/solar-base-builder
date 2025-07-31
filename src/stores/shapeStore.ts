@@ -2,18 +2,20 @@ import { create } from 'zustand';
 
 export interface Shape {
   id: string;
-  type: 'rectangle' | 'square' | 'circle' | 'polygon';
+  type: 'rectangle' | 'square' | 'circle' | 'line';
   dimensions: {
     width?: number;
-    height?: number;
+    length?: number;
     radius?: number;
+    lineLength?: number;
   };
   position: {
     x: number;
     y: number;
   };
   rotation: number;
-  points?: number[]; // For polygon shapes
+  startPoint?: { x: number; y: number }; // For line shapes
+  endPoint?: { x: number; y: number }; // For line shapes
   connectedTo: string[];
   merged: boolean;
 }
@@ -21,8 +23,7 @@ export interface Shape {
 interface ShapeStore {
   shapes: Shape[];
   selectedShapeId: string | null;
-  activeShapeType: 'rectangle' | 'square' | 'circle' | 'polygon';
-  isDrawingMode: boolean;
+  activeShapeType: 'rectangle' | 'square' | 'circle' | 'line';
   canvasScale: number;
   canvasOffset: { x: number; y: number };
   shapeMergeEnabled: boolean;
@@ -33,7 +34,6 @@ interface ShapeStore {
   deleteShape: (id: string) => void;
   selectShape: (id: string | null) => void;
   setActiveShapeType: (type: Shape['type']) => void;
-  setDrawingMode: (enabled: boolean) => void;
   setCanvasScale: (scale: number) => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setShapeMergeEnabled: (enabled: boolean) => void;
@@ -45,7 +45,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   shapes: [],
   selectedShapeId: null,
   activeShapeType: 'rectangle',
-  isDrawingMode: false,
   canvasScale: 1,
   canvasOffset: { x: 0, y: 0 },
   shapeMergeEnabled: false,
@@ -87,9 +86,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     set({ activeShapeType: type });
   },
 
-  setDrawingMode: (enabled) => {
-    set({ isDrawingMode: enabled });
-  },
 
   setCanvasScale: (scale) => {
     set({ canvasScale: Math.max(0.1, Math.min(5, scale)) });

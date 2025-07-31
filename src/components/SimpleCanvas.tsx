@@ -67,9 +67,9 @@ export const SimpleCanvas = () => {
         ctx.setLineDash([5, 5]);
         
         const startX = (shape.position.x + (shape.dimensions.width || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const startY = (shape.position.y + (shape.dimensions.height || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const startY = (shape.position.y + (shape.dimensions.length || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
         const endX = (connectedShape.position.x + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const endY = (connectedShape.position.y + (connectedShape.dimensions.height || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const endY = (connectedShape.position.y + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
 
         ctx.beginPath();
         ctx.moveTo(startX, startY);
@@ -81,9 +81,6 @@ export const SimpleCanvas = () => {
 
     // Draw shapes
     shapes.forEach(shape => {
-      const x = shape.position.x * PIXELS_PER_METER * canvasScale;
-      const y = shape.position.y * PIXELS_PER_METER * canvasScale;
-      
       const isSelected = selectedShapeId === shape.id;
       const isMerged = shape.merged;
       
@@ -101,44 +98,105 @@ export const SimpleCanvas = () => {
       
       ctx.lineWidth = isSelected ? 3 : 2;
 
-      ctx.save();
-      ctx.translate(x, y);
-      if (shape.rotation) {
-        ctx.rotate((shape.rotation * Math.PI) / 180);
-      }
-
-      if (shape.type === 'circle') {
-        const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+      if (shape.type === 'line') {
+        // Draw line from start to end point
+        const startX = shape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+        const startY = shape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+        const endX = shape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+        const endY = shape.endPoint!.y * PIXELS_PER_METER * canvasScale;
+        
         ctx.beginPath();
-        ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
-        ctx.fill();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
         ctx.stroke();
+        
+        // Draw endpoints as small circles
+        ctx.beginPath();
+        ctx.arc(startX, startY, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(endX, endY, 4, 0, 2 * Math.PI);
+        ctx.fill();
       } else {
-        const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (shape.dimensions.height || 0) * PIXELS_PER_METER * canvasScale;
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeRect(0, 0, width, height);
-      }
+        const x = shape.position.x * PIXELS_PER_METER * canvasScale;
+        const y = shape.position.y * PIXELS_PER_METER * canvasScale;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        if (shape.rotation) {
+          ctx.rotate((shape.rotation * Math.PI) / 180);
+        }
 
-      ctx.restore();
+        if (shape.type === 'circle') {
+          const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+          ctx.beginPath();
+          ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+          const height = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+          ctx.fillRect(0, 0, width, height);
+          ctx.strokeRect(0, 0, width, height);
+        }
+
+        ctx.restore();
+      }
     });
   };
 
   const getShapeAt = (x: number, y: number) => {
     for (let i = shapes.length - 1; i >= 0; i--) {
       const shape = shapes[i];
-      const shapeX = shape.position.x * PIXELS_PER_METER * canvasScale;
-      const shapeY = shape.position.y * PIXELS_PER_METER * canvasScale;
       
-      if (shape.type === 'circle') {
-        const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
-        const distance = Math.sqrt((x - shapeX - radius) ** 2 + (y - shapeY - radius) ** 2);
-        if (distance <= radius) return shape.id;
+      if (shape.type === 'line') {
+        // Check if click is near the line
+        const startX = shape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+        const startY = shape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+        const endX = shape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+        const endY = shape.endPoint!.y * PIXELS_PER_METER * canvasScale;
+        
+        // Distance from point to line
+        const A = x - startX;
+        const B = y - startY;
+        const C = endX - startX;
+        const D = endY - startY;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        const param = lenSq !== 0 ? dot / lenSq : -1;
+        
+        let xx, yy;
+        if (param < 0) {
+          xx = startX;
+          yy = startY;
+        } else if (param > 1) {
+          xx = endX;
+          yy = endY;
+        } else {
+          xx = startX + param * C;
+          yy = startY + param * D;
+        }
+        
+        const dx = x - xx;
+        const dy = y - yy;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= 10) return shape.id; // 10px tolerance for line selection
       } else {
-        const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (shape.dimensions.height || 0) * PIXELS_PER_METER * canvasScale;
-        if (x >= shapeX && x <= shapeX + width && y >= shapeY && y <= shapeY + height) {
-          return shape.id;
+        const shapeX = shape.position.x * PIXELS_PER_METER * canvasScale;
+        const shapeY = shape.position.y * PIXELS_PER_METER * canvasScale;
+        
+        if (shape.type === 'circle') {
+          const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+          const distance = Math.sqrt((x - shapeX - radius) ** 2 + (y - shapeY - radius) ** 2);
+          if (distance <= radius) return shape.id;
+        } else {
+          const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+          const height = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+          if (x >= shapeX && x <= shapeX + width && y >= shapeY && y <= shapeY + height) {
+            return shape.id;
+          }
         }
       }
     }
@@ -244,7 +302,9 @@ export const SimpleCanvas = () => {
               <div className="text-xs text-muted-foreground">
                 {selectedShape.type === 'circle' 
                   ? `Radius: ${selectedShape.dimensions.radius?.toFixed(1)}m`
-                  : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.height?.toFixed(1)}m`
+                  : selectedShape.type === 'line'
+                    ? `Length: ${selectedShape.dimensions.lineLength?.toFixed(1)}m`
+                    : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.length?.toFixed(1)}m`
                 }
               </div>
             </div>

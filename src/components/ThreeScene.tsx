@@ -19,9 +19,20 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
     shapes.forEach((shape) => {
       let shapeOutline: THREE.Shape;
       
-      if (shape.type === 'rectangle' || shape.type === 'square') {
+      if (shape.type === 'line') {
+        // Create a thin rectangular shape for the line
+        const lineWidth = 0.1; // 10cm width for the line
+        const lineLength = shape.dimensions.lineLength || 1;
+        
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(shape.startPoint!.x, shape.startPoint!.y);
+        shapeOutline.lineTo(shape.startPoint!.x + lineWidth, shape.startPoint!.y);
+        shapeOutline.lineTo(shape.endPoint!.x + lineWidth, shape.endPoint!.y);
+        shapeOutline.lineTo(shape.endPoint!.x, shape.endPoint!.y);
+        shapeOutline.lineTo(shape.startPoint!.x, shape.startPoint!.y);
+      } else if (shape.type === 'rectangle' || shape.type === 'square') {
         const width = (shape.dimensions.width || 1);
-        const shapeHeight = (shape.dimensions.height || shape.dimensions.width || 1);
+        const shapeHeight = (shape.dimensions.length || shape.dimensions.width || 1);
         
         shapeOutline = new THREE.Shape();
         shapeOutline.moveTo(shape.position.x, shape.position.y);
