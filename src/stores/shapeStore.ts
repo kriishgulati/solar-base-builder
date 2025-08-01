@@ -132,7 +132,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   checkAndMergeConnectedShapes: () => {
     set((state) => {
-      const TOLERANCE = 0.1; // 0.1 meter tolerance for tighter connection detection
+      const TOLERANCE = 0.3; // 0.3 meter tolerance for connection detection
       
       // Helper function to check if two points are close
       const arePointsClose = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
@@ -162,48 +162,55 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
         return [];
       };
 
-      // Helper function to check if lines form enclosed shapes
+      // Enhanced function to find enclosed shapes (polygons formed by lines)
       const findEnclosedShapes = (shapes: Shape[]) => {
         const lineShapes = shapes.filter(s => s.type === 'line');
         const enclosedGroups: string[][] = [];
+        const usedLines = new Set<string>();
         
-        // Simple polygon detection - check if lines form closed loops
-        lineShapes.forEach(line => {
-          const connectedLines = [line.id];
-          let currentEndPoint = line.endPoint!;
+        // For each line, try to find a closed path
+        lineShapes.forEach(startLine => {
+          if (usedLines.has(startLine.id)) return;
+          
+          const path = [startLine.id];
+          let currentPoint = startLine.endPoint!;
           let found = true;
           
-          while (found && connectedLines.length < 20) { // Max 20 lines to prevent infinite loops
+          while (found && path.length < 10) { // Max 10 lines to prevent infinite loops
             found = false;
-            for (const otherLine of lineShapes) {
-              if (connectedLines.includes(otherLine.id)) continue;
+            
+            for (const nextLine of lineShapes) {
+              if (path.includes(nextLine.id)) continue;
               
-              if (arePointsClose(currentEndPoint, otherLine.startPoint!)) {
-                connectedLines.push(otherLine.id);
-                currentEndPoint = otherLine.endPoint!;
+              // Check if this line connects to our current point
+              if (arePointsClose(currentPoint, nextLine.startPoint!)) {
+                path.push(nextLine.id);
+                currentPoint = nextLine.endPoint!;
                 found = true;
                 break;
-              } else if (arePointsClose(currentEndPoint, otherLine.endPoint!)) {
-                connectedLines.push(otherLine.id);
-                currentEndPoint = otherLine.startPoint!;
+              } else if (arePointsClose(currentPoint, nextLine.endPoint!)) {
+                path.push(nextLine.id);
+                currentPoint = nextLine.startPoint!;
                 found = true;
                 break;
               }
             }
           }
           
-          // Check if we've formed a closed loop
-          if (connectedLines.length >= 3 && arePointsClose(currentEndPoint, line.startPoint!)) {
-            enclosedGroups.push(connectedLines);
+          // Check if we've formed a closed loop (connected back to start)
+          if (path.length >= 3 && arePointsClose(currentPoint, startLine.startPoint!)) {
+            enclosedGroups.push(path);
+            path.forEach(id => usedLines.add(id));
           }
         });
         
         return enclosedGroups;
       };
 
-      // Find connected shapes and enclosed groups
+      // Find all enclosed shape groups
       const enclosedGroups = findEnclosedShapes(state.shapes);
       
+      // Find connected shapes using point proximity
       const updatedShapes = state.shapes.map(shape => {
         const shapePoints = getShapePoints(shape);
         const connectedShapeIds: string[] = [];
@@ -225,6 +232,18 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
         
         // Check if this shape is part of an enclosed group
         const isInEnclosedGroup = enclosedGroups.some(group => group.includes(shape.id));
+        
+        // Add all shapes in the same enclosed group as connected
+        if (isInEnclosedGroup) {
+          const myGroup = enclosedGroups.find(group => group.includes(shape.id));
+          if (myGroup) {
+            myGroup.forEach(id => {
+              if (id !== shape.id && !connectedShapeIds.includes(id)) {
+                connectedShapeIds.push(id);
+              }
+            });
+          }
+        }
         
         return {
           ...shape,

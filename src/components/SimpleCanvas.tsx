@@ -444,9 +444,9 @@ export const SimpleCanvas = () => {
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        width={800}
-        height={600}
-        className="cursor-crosshair"
+        width={1200}
+        height={800}
+        className="w-full h-full cursor-crosshair"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
