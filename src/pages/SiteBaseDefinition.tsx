@@ -76,12 +76,12 @@ export const SiteBaseDefinition = () => {
 
       {/* Main Content */}
       <div className="h-[calc(100vh-80px)] flex">
-        {/* Left Panel - Shape Tools */}
+        {/* Left Panel - Shape Tools (20%) */}
         <div className="w-1/5 p-4 border-r bg-background">
           <ShapeToolbar />
         </div>
 
-        {/* Right Panel - Canvas */}
+        {/* Right Panel - Canvas (80%) */}
         <div className="w-4/5 p-4">
           <SimpleCanvas />
         </div>

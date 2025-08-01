@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useShapeStore } from '@/stores/shapeStore';
+import { useShapeStore, Shape } from '@/stores/shapeStore';
 import { ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react';
 
 const PIXELS_PER_METER = 50; // 1 meter = 50 pixels for display
@@ -84,41 +84,86 @@ export const SimpleCanvas = () => {
       const isSelected = selectedShapeId === shape.id;
       const isMerged = shape.merged;
       
-      // Create a combined shape path for merged shapes
-      if (isMerged && shape.connectedTo.length > 0) {
+      // Create a combined shape path for merged shapes or enclosed areas
+      if (isMerged) {
         ctx.fillStyle = 'hsl(142 76% 55% / 0.8)';
         ctx.strokeStyle = 'hsl(142 76% 55%)';
+        ctx.lineWidth = 3;
         
-        // Draw the main shape and all connected shapes as one combined shape
-        const allConnectedShapes = [shape, ...shapes.filter(s => shape.connectedTo.includes(s.id))];
+        // Find all shapes that are connected to this one (including transitively)
+        const visitedShapes = new Set<string>();
+        const getAllConnectedShapes = (shapeId: string): Shape[] => {
+          if (visitedShapes.has(shapeId)) return [];
+          visitedShapes.add(shapeId);
+          
+          const currentShape = shapes.find(s => s.id === shapeId);
+          if (!currentShape) return [];
+          
+          let connected = [currentShape];
+          currentShape.connectedTo.forEach(connectedId => {
+            connected = [...connected, ...getAllConnectedShapes(connectedId)];
+          });
+          
+          return connected;
+        };
         
-        ctx.beginPath();
-        allConnectedShapes.forEach(connectedShape => {
-          if (connectedShape.type === 'line') {
-            const startX = connectedShape.startPoint!.x * PIXELS_PER_METER * canvasScale;
-            const startY = connectedShape.startPoint!.y * PIXELS_PER_METER * canvasScale;
-            const endX = connectedShape.endPoint!.x * PIXELS_PER_METER * canvasScale;
-            const endY = connectedShape.endPoint!.y * PIXELS_PER_METER * canvasScale;
-            
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
-          } else {
-            const x = connectedShape.position.x * PIXELS_PER_METER * canvasScale;
-            const y = connectedShape.position.y * PIXELS_PER_METER * canvasScale;
-            
-            if (connectedShape.type === 'circle') {
-              const radius = (connectedShape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
-              ctx.moveTo(x + radius * 2, y + radius);
-              ctx.arc(x + radius, y + radius, radius, 0, 2 * Math.PI);
+        const allConnectedShapes = getAllConnectedShapes(shape.id);
+        
+        // Check if we have lines that form an enclosed shape
+        const lineShapes = allConnectedShapes.filter(s => s.type === 'line');
+        if (lineShapes.length >= 3) {
+          // Try to draw filled polygon for enclosed line shapes
+          ctx.beginPath();
+          
+          // Start with the first line
+          const firstLine = lineShapes[0];
+          ctx.moveTo(
+            firstLine.startPoint!.x * PIXELS_PER_METER * canvasScale,
+            firstLine.startPoint!.y * PIXELS_PER_METER * canvasScale
+          );
+          
+          // Connect all line endpoints to form a polygon
+          lineShapes.forEach(lineShape => {
+            ctx.lineTo(
+              lineShape.endPoint!.x * PIXELS_PER_METER * canvasScale,
+              lineShape.endPoint!.y * PIXELS_PER_METER * canvasScale
+            );
+          });
+          
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Draw all connected shapes normally
+          allConnectedShapes.forEach(connectedShape => {
+            ctx.beginPath();
+            if (connectedShape.type === 'line') {
+              const startX = connectedShape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+              const startY = connectedShape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+              const endX = connectedShape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+              const endY = connectedShape.endPoint!.y * PIXELS_PER_METER * canvasScale;
+              
+              ctx.moveTo(startX, startY);
+              ctx.lineTo(endX, endY);
+              ctx.stroke();
             } else {
-              const width = (connectedShape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-              const height = (connectedShape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-              ctx.rect(x, y, width, height);
+              const x = connectedShape.position.x * PIXELS_PER_METER * canvasScale;
+              const y = connectedShape.position.y * PIXELS_PER_METER * canvasScale;
+              
+              if (connectedShape.type === 'circle') {
+                const radius = (connectedShape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+                ctx.arc(x + radius, y + radius, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+              } else {
+                const width = (connectedShape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+                const height = (connectedShape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+                ctx.fillRect(x, y, width, height);
+                ctx.strokeRect(x, y, width, height);
+              }
             }
-          }
-        });
-        ctx.fill();
-        ctx.stroke();
+          });
+        }
       } else {
         // Draw individual shapes
         ctx.fillStyle = isSelected 

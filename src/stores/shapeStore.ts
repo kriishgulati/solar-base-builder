@@ -132,7 +132,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   checkAndMergeConnectedShapes: () => {
     set((state) => {
-      const TOLERANCE = 0.5; // 0.5 meter tolerance for connection detection
+      const TOLERANCE = 0.1; // 0.1 meter tolerance for tighter connection detection
       
       // Helper function to check if two points are close
       const arePointsClose = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
@@ -162,7 +162,48 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
         return [];
       };
 
-      // Find connected shapes
+      // Helper function to check if lines form enclosed shapes
+      const findEnclosedShapes = (shapes: Shape[]) => {
+        const lineShapes = shapes.filter(s => s.type === 'line');
+        const enclosedGroups: string[][] = [];
+        
+        // Simple polygon detection - check if lines form closed loops
+        lineShapes.forEach(line => {
+          const connectedLines = [line.id];
+          let currentEndPoint = line.endPoint!;
+          let found = true;
+          
+          while (found && connectedLines.length < 20) { // Max 20 lines to prevent infinite loops
+            found = false;
+            for (const otherLine of lineShapes) {
+              if (connectedLines.includes(otherLine.id)) continue;
+              
+              if (arePointsClose(currentEndPoint, otherLine.startPoint!)) {
+                connectedLines.push(otherLine.id);
+                currentEndPoint = otherLine.endPoint!;
+                found = true;
+                break;
+              } else if (arePointsClose(currentEndPoint, otherLine.endPoint!)) {
+                connectedLines.push(otherLine.id);
+                currentEndPoint = otherLine.startPoint!;
+                found = true;
+                break;
+              }
+            }
+          }
+          
+          // Check if we've formed a closed loop
+          if (connectedLines.length >= 3 && arePointsClose(currentEndPoint, line.startPoint!)) {
+            enclosedGroups.push(connectedLines);
+          }
+        });
+        
+        return enclosedGroups;
+      };
+
+      // Find connected shapes and enclosed groups
+      const enclosedGroups = findEnclosedShapes(state.shapes);
+      
       const updatedShapes = state.shapes.map(shape => {
         const shapePoints = getShapePoints(shape);
         const connectedShapeIds: string[] = [];
@@ -182,10 +223,13 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
           }
         });
         
+        // Check if this shape is part of an enclosed group
+        const isInEnclosedGroup = enclosedGroups.some(group => group.includes(shape.id));
+        
         return {
           ...shape,
           connectedTo: connectedShapeIds,
-          merged: connectedShapeIds.length > 0
+          merged: connectedShapeIds.length > 0 || isInEnclosedGroup
         };
       });
       
