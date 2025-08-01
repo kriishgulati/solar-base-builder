@@ -11,6 +11,7 @@ export const SimpleCanvas = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragShape, setDragShape] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDraggingEndpoint, setIsDraggingEndpoint] = useState<'start' | 'end' | null>(null);
 
   const {
     shapes,
@@ -188,13 +189,30 @@ export const SimpleCanvas = () => {
           ctx.lineTo(endX, endY);
           ctx.stroke();
         
-          // Draw endpoints as small circles
+          // Draw endpoint handles for easier manipulation
+          ctx.fillStyle = isSelected ? 'hsl(213 100% 60%)' : 'hsl(35 91% 55%)';
+          
+          // Start point handle
           ctx.beginPath();
-          ctx.arc(startX, startY, 4, 0, 2 * Math.PI);
+          ctx.arc(startX, startY, isSelected ? 6 : 4, 0, 2 * Math.PI);
           ctx.fill();
+          
+          // End point handle  
           ctx.beginPath();
-          ctx.arc(endX, endY, 4, 0, 2 * Math.PI);
+          ctx.arc(endX, endY, isSelected ? 6 : 4, 0, 2 * Math.PI);
           ctx.fill();
+          
+          // Add white border to handles when selected for better visibility
+          if (isSelected) {
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(startX, startY, 6, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(endX, endY, 6, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
         } else {
           const x = shape.position.x * PIXELS_PER_METER * canvasScale;
           const y = shape.position.y * PIXELS_PER_METER * canvasScale;
@@ -288,35 +306,122 @@ export const SimpleCanvas = () => {
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Check if we clicked on an existing shape
+    let clickedShapeId: string | null = null;
+    let clickedEndpoint: 'start' | 'end' | null = null;
     
-    const shapeId = getShapeAt(x, y);
-    
-    if (shapeId) {
-      if (shapeMergeEnabled && selectedShapeId && selectedShapeId !== shapeId) {
-        const { mergeShapes } = useShapeStore.getState();
-        mergeShapes([selectedShapeId, shapeId]);
-        selectShape(null);
-      } else {
-        selectShape(shapeId);
-        setIsDragging(true);
-        setDragShape(shapeId);
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const shape = shapes[i];
+      let isInside = false;
+
+      if (shape.type === 'line') {
+        // Check if click is on line endpoints first (for easier manipulation)
+        const x1 = shape.startPoint!.x * PIXELS_PER_METER * canvasScale;
+        const y1 = shape.startPoint!.y * PIXELS_PER_METER * canvasScale;
+        const x2 = shape.endPoint!.x * PIXELS_PER_METER * canvasScale;
+        const y2 = shape.endPoint!.y * PIXELS_PER_METER * canvasScale;
         
-        const shape = shapes.find(s => s.id === shapeId);
-        if (shape) {
-          if (shape.type === 'line') {
-            // For lines, calculate offset from the midpoint
+        const startDistance = Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
+        const endDistance = Math.sqrt((x - x2) ** 2 + (y - y2) ** 2);
+        
+        if (startDistance < 15) {
+          isInside = true;
+          clickedEndpoint = 'start';
+        } else if (endDistance < 15) {
+          isInside = true;
+          clickedEndpoint = 'end';
+        } else {
+          // Check if click is near the line for whole line dragging
+          const A = x - x1;
+          const B = y - y1;
+          const C = x2 - x1;
+          const D = y2 - y1;
+          
+          const dot = A * C + B * D;
+          const lenSq = C * C + D * D;
+          let param = -1;
+          
+          if (lenSq !== 0) {
+            param = dot / lenSq;
+          }
+          
+          let xx, yy;
+          
+          if (param < 0) {
+            xx = x1;
+            yy = y1;
+          } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+          } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+          }
+          
+          const dx = x - xx;
+          const dy = y - yy;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          isInside = distance < 10; // 10 pixel tolerance
+        }
+      } else {
+        const shapeX = shape.position.x * PIXELS_PER_METER * canvasScale;
+        const shapeY = shape.position.y * PIXELS_PER_METER * canvasScale;
+        
+        if (shape.type === 'rectangle' || shape.type === 'square') {
+          const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+          const height = (shape.dimensions.length || shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
+          isInside = x >= shapeX && x <= shapeX + width && y >= shapeY && y <= shapeY + height;
+        } else if (shape.type === 'circle') {
+          const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+          const centerX = shapeX + radius;
+          const centerY = shapeY + radius;
+          const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+          isInside = distance <= radius;
+        }
+      }
+
+      if (isInside) {
+        clickedShapeId = shape.id;
+        break;
+      }
+    }
+
+    if (clickedShapeId) {
+      const shapeId = clickedShapeId;
+      selectShape(shapeId);
+      setIsDragging(true);
+      setDragShape(shapeId);
+      setIsDraggingEndpoint(clickedEndpoint);
+      
+      const shape = shapes.find(s => s.id === shapeId);
+      if (shape) {
+        if (shape.type === 'line') {
+          if (clickedEndpoint === 'start') {
+            setDragOffset({
+              x: x - shape.startPoint!.x * PIXELS_PER_METER * canvasScale,
+              y: y - shape.startPoint!.y * PIXELS_PER_METER * canvasScale,
+            });
+          } else if (clickedEndpoint === 'end') {
+            setDragOffset({
+              x: x - shape.endPoint!.x * PIXELS_PER_METER * canvasScale,
+              y: y - shape.endPoint!.y * PIXELS_PER_METER * canvasScale,
+            });
+          } else {
+            // Dragging whole line
             const midX = (shape.startPoint!.x + shape.endPoint!.x) / 2;
             const midY = (shape.startPoint!.y + shape.endPoint!.y) / 2;
             setDragOffset({
               x: x - midX * PIXELS_PER_METER * canvasScale,
               y: y - midY * PIXELS_PER_METER * canvasScale,
             });
-          } else {
-            setDragOffset({
-              x: x - shape.position.x * PIXELS_PER_METER * canvasScale,
-              y: y - shape.position.y * PIXELS_PER_METER * canvasScale,
-            });
           }
+        } else {
+          setDragOffset({
+            x: x - shape.position.x * PIXELS_PER_METER * canvasScale,
+            y: y - shape.position.y * PIXELS_PER_METER * canvasScale,
+          });
         }
       }
     } else {
@@ -337,26 +442,50 @@ export const SimpleCanvas = () => {
     if (!shape) return;
     
     if (shape.type === 'line') {
-      // For lines, move both start and end points
-      const newMidX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
-      const newMidY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
-      
-      const currentMidX = (shape.startPoint!.x + shape.endPoint!.x) / 2;
-      const currentMidY = (shape.startPoint!.y + shape.endPoint!.y) / 2;
-      
-      const deltaX = newMidX - currentMidX;
-      const deltaY = newMidY - currentMidY;
-      
-      updateShape(dragShape, {
-        startPoint: {
-          x: Math.max(0, shape.startPoint!.x + deltaX),
-          y: Math.max(0, shape.startPoint!.y + deltaY)
-        },
-        endPoint: {
-          x: Math.max(0, shape.endPoint!.x + deltaX),
-          y: Math.max(0, shape.endPoint!.y + deltaY)
-        }
-      });
+      if (isDraggingEndpoint === 'start') {
+        // Move only the start point
+        const newX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
+        const newY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+        
+        updateShape(dragShape, {
+          startPoint: {
+            x: Math.max(0, newX),
+            y: Math.max(0, newY)
+          }
+        });
+      } else if (isDraggingEndpoint === 'end') {
+        // Move only the end point
+        const newX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
+        const newY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+        
+        updateShape(dragShape, {
+          endPoint: {
+            x: Math.max(0, newX),
+            y: Math.max(0, newY)
+          }
+        });
+      } else {
+        // Move the entire line
+        const newMidX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
+        const newMidY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
+        
+        const currentMidX = (shape.startPoint!.x + shape.endPoint!.x) / 2;
+        const currentMidY = (shape.startPoint!.y + shape.endPoint!.y) / 2;
+        
+        const deltaX = newMidX - currentMidX;
+        const deltaY = newMidY - currentMidY;
+        
+        updateShape(dragShape, {
+          startPoint: {
+            x: Math.max(0, shape.startPoint!.x + deltaX),
+            y: Math.max(0, shape.startPoint!.y + deltaY)
+          },
+          endPoint: {
+            x: Math.max(0, shape.endPoint!.x + deltaX),
+            y: Math.max(0, shape.endPoint!.y + deltaY)
+          }
+        });
+      }
     } else {
       const newX = (x - dragOffset.x) / (PIXELS_PER_METER * canvasScale);
       const newY = (y - dragOffset.y) / (PIXELS_PER_METER * canvasScale);
@@ -370,6 +499,7 @@ export const SimpleCanvas = () => {
   const handleMouseUp = () => {
     setIsDragging(false);
     setDragShape(null);
+    setIsDraggingEndpoint(null);
   };
 
   useEffect(() => {

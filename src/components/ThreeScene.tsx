@@ -47,64 +47,90 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
         const otherShapes = connectedGroup.filter(s => s.type !== 'line');
         
         if (lineShapes.length >= 3) {
-          // Try to create a polygon from the lines
+          // Improved polygon creation from connected lines
           const points: THREE.Vector2[] = [];
           
-          // Sort lines to form a continuous path
-          const sortedLines = [lineShapes[0]];
-          let currentEndPoint = lineShapes[0].endPoint!;
+          // Build a continuous path from connected lines
+          const usedLines = new Set<string>();
+          const orderedPoints: THREE.Vector2[] = [];
           
-          while (sortedLines.length < lineShapes.length) {
-            const nextLine = lineShapes.find(line => 
-              !sortedLines.includes(line) && 
-              (Math.abs(line.startPoint!.x - currentEndPoint.x) < 0.3 && 
-               Math.abs(line.startPoint!.y - currentEndPoint.y) < 0.3)
-            );
+          // Start with any line
+          let currentLine = lineShapes[0];
+          usedLines.add(currentLine.id);
+          orderedPoints.push(new THREE.Vector2(currentLine.startPoint!.x, currentLine.startPoint!.y));
+          orderedPoints.push(new THREE.Vector2(currentLine.endPoint!.x, currentLine.endPoint!.y));
+          
+          let currentPoint = currentLine.endPoint!;
+          
+          // Continue building the path
+          while (usedLines.size < lineShapes.length) {
+            let foundConnection = false;
             
-            if (nextLine) {
-              sortedLines.push(nextLine);
-              currentEndPoint = nextLine.endPoint!;
-            } else {
-              // Try connecting to endpoint instead
-              const reverseLine = lineShapes.find(line => 
-                !sortedLines.includes(line) && 
-                (Math.abs(line.endPoint!.x - currentEndPoint.x) < 0.3 && 
-                 Math.abs(line.endPoint!.y - currentEndPoint.y) < 0.3)
-              );
-              if (reverseLine) {
-                sortedLines.push(reverseLine);
-                currentEndPoint = reverseLine.startPoint!;
-              } else {
+            for (const line of lineShapes) {
+              if (usedLines.has(line.id)) continue;
+              
+              const tolerance = 0.5;
+              
+              // Check if start point connects to current point
+              if (Math.abs(line.startPoint!.x - currentPoint.x) < tolerance && 
+                  Math.abs(line.startPoint!.y - currentPoint.y) < tolerance) {
+                orderedPoints.push(new THREE.Vector2(line.endPoint!.x, line.endPoint!.y));
+                currentPoint = line.endPoint!;
+                usedLines.add(line.id);
+                foundConnection = true;
+                break;
+              }
+              // Check if end point connects to current point
+              else if (Math.abs(line.endPoint!.x - currentPoint.x) < tolerance && 
+                       Math.abs(line.endPoint!.y - currentPoint.y) < tolerance) {
+                orderedPoints.push(new THREE.Vector2(line.startPoint!.x, line.startPoint!.y));
+                currentPoint = line.startPoint!;
+                usedLines.add(line.id);
+                foundConnection = true;
                 break;
               }
             }
+            
+            if (!foundConnection) break;
           }
           
-          // Create points from sorted lines
-          if (sortedLines.length >= 3) {
-            sortedLines.forEach(line => {
-              points.push(new THREE.Vector2(line.startPoint!.x, line.startPoint!.y));
-            });
+          // If we have enough points and they form a closed shape, create the polygon
+          if (orderedPoints.length >= 3) {
+            // Remove the duplicate last point if it's the same as first
+            const firstPoint = orderedPoints[0];
+            const lastPoint = orderedPoints[orderedPoints.length - 1];
+            const isClosedLoop = firstPoint.distanceTo(lastPoint) < 0.5;
             
-            // Check if it's a closed polygon
-            const firstPoint = points[0];
-            const lastPoint = points[points.length - 1];
-            const distance = firstPoint.distanceTo(lastPoint);
+            if (isClosedLoop && orderedPoints.length > 3) {
+              orderedPoints.pop(); // Remove duplicate endpoint
+            }
             
-            if (distance < 0.5 || sortedLines.length >= 3) {
-              // Create enclosed polygon
-              const polygonShape = new THREE.Shape(points);
-              const extrudeSettings = {
-                depth: height,
-                bevelEnabled: true,
-                bevelThickness: 0.1,
-                bevelSize: 0.05,
-                bevelSegments: 2,
-              };
-              
+            // Create the shape
+            const polygonShape = new THREE.Shape(orderedPoints);
+            const extrudeSettings = {
+              depth: height,
+              bevelEnabled: true,
+              bevelThickness: 0.05,
+              bevelSize: 0.02,
+              bevelSegments: 1,
+            };
+            
+            try {
               const extrudedGeometry = new THREE.ExtrudeGeometry(polygonShape, extrudeSettings);
               geometries.push(extrudedGeometry);
+            } catch (error) {
+              // If extrusion fails, create individual line geometries
+              lineShapes.forEach(line => {
+                const lineGeometry = createShapeGeometry(line, height);
+                if (lineGeometry) geometries.push(lineGeometry);
+              });
             }
+          } else {
+            // Create individual line geometries if we can't form a polygon
+            lineShapes.forEach(line => {
+              const lineGeometry = createShapeGeometry(line, height);
+              if (lineGeometry) geometries.push(lineGeometry);
+            });
           }
         }
         
