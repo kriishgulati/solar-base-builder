@@ -5,54 +5,47 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useShapeStore } from '@/stores/shapeStore';
 import { 
   Square, 
   RectangleHorizontal, 
   Circle, 
-  Minus,
+  PenTool, 
   RotateCw, 
   Trash2, 
   Plus,
-  Link
+  Link,
+  Download
 } from 'lucide-react';
 
 export const ShapeToolbar = () => {
   const {
     activeShapeType,
     setActiveShapeType,
+    isDrawingMode,
+    setDrawingMode,
     shapeMergeEnabled,
     setShapeMergeEnabled,
+    addShape,
     clearCanvas,
   } = useShapeStore();
 
   const [dimensions, setDimensions] = useState({
     width: 10,
-    length: 10,
+    height: 10,
     radius: 5,
-    lineLength: 10,
   });
   const [rotation, setRotation] = useState(0);
-  const [showDimensionDialog, setShowDimensionDialog] = useState(false);
-  const [pendingShapeType, setPendingShapeType] = useState<'rectangle' | 'square' | 'circle' | 'line' | null>(null);
-
-  const handleShapeTypeSelect = (type: 'rectangle' | 'square' | 'circle' | 'line') => {
-    setPendingShapeType(type);
-    setShowDimensionDialog(true);
-  };
 
   const handleAddShape = () => {
-    if (!pendingShapeType) return;
-    
     const basePosition = { x: 2, y: 2 }; // 2 meters from origin
     
     let shapeData;
-    switch (pendingShapeType) {
+    switch (activeShapeType) {
       case 'rectangle':
         shapeData = {
           type: 'rectangle' as const,
-          dimensions: { width: dimensions.width, length: dimensions.length },
+          dimensions: { width: dimensions.width, height: dimensions.height },
           position: basePosition,
           rotation,
         };
@@ -60,7 +53,7 @@ export const ShapeToolbar = () => {
       case 'square':
         shapeData = {
           type: 'square' as const,
-          dimensions: { width: dimensions.width, length: dimensions.width },
+          dimensions: { width: dimensions.width, height: dimensions.width },
           position: basePosition,
           rotation,
         };
@@ -73,40 +66,22 @@ export const ShapeToolbar = () => {
           rotation,
         };
         break;
-      case 'line':
-        const angle = (rotation * Math.PI) / 180;
-        const endX = basePosition.x + (dimensions.lineLength * Math.cos(angle));
-        const endY = basePosition.y + (dimensions.lineLength * Math.sin(angle));
-        shapeData = {
-          type: 'line' as const,
-          dimensions: { lineLength: dimensions.lineLength },
-          position: basePosition,
-          rotation,
-          startPoint: basePosition,
-          endPoint: { x: endX, y: endY },
-        };
-        break;
       default:
         return;
     }
 
-    const { addShape } = useShapeStore.getState();
     addShape(shapeData);
-    setActiveShapeType(pendingShapeType);
-    setShowDimensionDialog(false);
-    setPendingShapeType(null);
   };
 
   const shapeButtons = [
     { type: 'rectangle', icon: RectangleHorizontal, label: 'Rectangle' },
     { type: 'square', icon: Square, label: 'Square' },
     { type: 'circle', icon: Circle, label: 'Circle' },
-    { type: 'line', icon: Minus, label: 'Custom Line' },
+    { type: 'polygon', icon: PenTool, label: 'Custom Shape' },
   ] as const;
 
   return (
-    <>
-      <Card className="p-6 h-full bg-gradient-subtle shadow-panel">
+    <Card className="p-6 h-full bg-gradient-subtle shadow-panel">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-2">
@@ -125,7 +100,7 @@ export const ShapeToolbar = () => {
                 key={type}
                 variant={activeShapeType === type ? "default" : "outline"}
                 size="sm"
-                onClick={() => handleShapeTypeSelect(type)}
+                onClick={() => setActiveShapeType(type)}
                 className="flex flex-col gap-1 h-auto py-3"
               >
                 <Icon size={20} />
@@ -137,14 +112,101 @@ export const ShapeToolbar = () => {
 
         <Separator />
 
-          {/* Shape Merge Toggle */}
+        {/* Dimensions */}
+        <div className="space-y-4">
+          <Label className="text-sm font-medium text-foreground">Dimensions (meters)</Label>
+          
+          {activeShapeType === 'circle' ? (
+            <div className="space-y-2">
+              <Label htmlFor="radius" className="text-xs text-muted-foreground">Radius</Label>
+              <Input
+                id="radius"
+                type="number"
+                value={dimensions.radius}
+                onChange={(e) => setDimensions(prev => ({ ...prev, radius: Number(e.target.value) }))}
+                className="h-9"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="width" className="text-xs text-muted-foreground">Width</Label>
+                <Input
+                  id="width"
+                  type="number"
+                  value={dimensions.width}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, width: Number(e.target.value) }))}
+                  className="h-9"
+                  min="0.1"
+                  step="0.1"
+                />
+              </div>
+              {activeShapeType === 'rectangle' && (
+                <div className="space-y-2">
+                  <Label htmlFor="height" className="text-xs text-muted-foreground">Height</Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={dimensions.height}
+                    onChange={(e) => setDimensions(prev => ({ ...prev, height: Number(e.target.value) }))}
+                    className="h-9"
+                    min="0.1"
+                    step="0.1"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rotation */}
+          <div className="space-y-2">
+            <Label htmlFor="rotation" className="text-xs text-muted-foreground">Rotation (degrees)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="rotation"
+                type="number"
+                value={rotation}
+                onChange={(e) => setRotation(Number(e.target.value))}
+                className="h-9"
+                min="0"
+                max="360"
+                step="1"
+              />
+              <Button variant="outline" size="sm" onClick={() => setRotation(0)}>
+                <RotateCw size={16} />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Actions */}
         <div className="space-y-3">
+          <Button onClick={handleAddShape} className="w-full bg-primary hover:bg-primary/90" size="sm">
+            <Plus size={16} className="mr-2" />
+            Add Shape
+          </Button>
+
+          {/* Shape Merge Toggle */}
           <div className="flex items-center justify-between py-2">
             <Label htmlFor="merge-toggle" className="text-sm text-foreground">Connect Shapes</Label>
             <Switch
               id="merge-toggle"
               checked={shapeMergeEnabled}
               onCheckedChange={setShapeMergeEnabled}
+            />
+          </div>
+
+          {/* Drawing Mode Toggle */}
+          <div className="flex items-center justify-between py-2">
+            <Label htmlFor="drawing-toggle" className="text-sm text-foreground">Drawing Mode</Label>
+            <Switch
+              id="drawing-toggle"
+              checked={isDrawingMode}
+              onCheckedChange={setDrawingMode}
             />
           </div>
         </div>
@@ -168,105 +230,5 @@ export const ShapeToolbar = () => {
         </div>
       </div>
     </Card>
-
-      {/* Dimension Dialog */}
-      <Dialog open={showDimensionDialog} onOpenChange={setShowDimensionDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Set Dimensions for {pendingShapeType}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Dimensions */}
-            {pendingShapeType === 'circle' ? (
-              <div className="space-y-2">
-                <Label htmlFor="radius" className="text-sm font-medium">Radius (meters)</Label>
-                <Input
-                  id="radius"
-                  type="number"
-                  value={dimensions.radius}
-                  onChange={(e) => setDimensions(prev => ({ ...prev, radius: Number(e.target.value) }))}
-                  className="h-10"
-                  min="0.1"
-                  step="0.1"
-                />
-              </div>
-            ) : pendingShapeType === 'line' ? (
-              <div className="space-y-2">
-                <Label htmlFor="lineLength" className="text-sm font-medium">Line Length (meters)</Label>
-                <Input
-                  id="lineLength"
-                  type="number"
-                  value={dimensions.lineLength}
-                  onChange={(e) => setDimensions(prev => ({ ...prev, lineLength: Number(e.target.value) }))}
-                  className="h-10"
-                  min="0.1"
-                  step="0.1"
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="width" className="text-sm font-medium">Width (meters)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    value={dimensions.width}
-                    onChange={(e) => setDimensions(prev => ({ ...prev, width: Number(e.target.value) }))}
-                    className="h-10"
-                    min="0.1"
-                    step="0.1"
-                  />
-                </div>
-                {pendingShapeType === 'rectangle' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="length" className="text-sm font-medium">Length (meters)</Label>
-                    <Input
-                      id="length"
-                      type="number"
-                      value={dimensions.length}
-                      onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
-                      className="h-10"
-                      min="0.1"
-                      step="0.1"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Rotation */}
-            <div className="space-y-2">
-              <Label htmlFor="rotation" className="text-sm font-medium">Rotation (degrees)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="rotation"
-                  type="number"
-                  value={rotation}
-                  onChange={(e) => setRotation(Number(e.target.value))}
-                  className="h-10"
-                  min="0"
-                  max="360"
-                  step="1"
-                />
-                <Button variant="outline" size="sm" onClick={() => setRotation(0)}>
-                  <RotateCw size={16} />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowDimensionDialog(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleAddShape} className="flex-1 bg-primary hover:bg-primary/90">
-                <Plus size={16} className="mr-2" />
-                Add Shape
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 };

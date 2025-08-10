@@ -80,7 +80,7 @@ export const DesignCanvas = () => {
     if (shape.type === 'rectangle' || shape.type === 'square') {
       updates.dimensions = {
         width: newAttrs.width / PIXELS_PER_METER,
-        length: newAttrs.height / PIXELS_PER_METER,
+        height: newAttrs.height / PIXELS_PER_METER,
       };
     } else if (shape.type === 'circle') {
       updates.dimensions = {
@@ -113,7 +113,7 @@ export const DesignCanvas = () => {
       rotation: shape.rotation,
       draggable: true,
       onClick: (e: any) => handleShapeClick(shape.id, e),
-      onDragEnd: (e: any) => handleShapeChange(shape.id, e.target.attrs()),
+      onDragEnd: (e: any) => handleShapeChange(shape.id, e.target.attrs),
       onTransformEnd: (e: any) => handleShapeChange(shape.id, e.target.attrs),
       fill: shape.merged 
         ? 'hsl(142 76% 55% / 0.8)' 
@@ -129,25 +129,13 @@ export const DesignCanvas = () => {
     };
 
     switch (shape.type) {
-      case 'line':
-        return (
-          <Line
-            {...commonProps}
-            points={[
-              shape.startPoint!.x * PIXELS_PER_METER,
-              shape.startPoint!.y * PIXELS_PER_METER,
-              shape.endPoint!.x * PIXELS_PER_METER,
-              shape.endPoint!.y * PIXELS_PER_METER,
-            ]}
-          />
-        );
       case 'rectangle':
       case 'square':
         return (
           <Rect
             {...commonProps}
             width={(shape.dimensions.width || 0) * PIXELS_PER_METER}
-            height={(shape.dimensions.length || 0) * PIXELS_PER_METER}
+            height={(shape.dimensions.height || 0) * PIXELS_PER_METER}
           />
         );
       case 'circle':
@@ -190,9 +178,7 @@ export const DesignCanvas = () => {
               <div className="text-xs text-muted-foreground">
                 {selectedShape.type === 'circle' 
                   ? `Radius: ${selectedShape.dimensions.radius?.toFixed(1)}m`
-                  : selectedShape.type === 'line'
-                    ? `Length: ${selectedShape.dimensions.lineLength?.toFixed(1)}m`
-                    : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.length?.toFixed(1)}m`
+                  : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.height?.toFixed(1)}m`
                 }
               </div>
             </div>
@@ -260,9 +246,9 @@ export const DesignCanvas = () => {
                   key={`${shape.id}-${connectedId}`}
                   points={[
                     shape.position.x * PIXELS_PER_METER + (shape.dimensions.width || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.length || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.height || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
                     connectedShape.position.x * PIXELS_PER_METER + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.height || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
                   ]}
                   stroke="hsl(142 76% 55%)"
                   strokeWidth={3}
