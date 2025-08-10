@@ -2,10 +2,11 @@ import { useRef, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as THREE from 'three';
-import { Shape } from '@/stores/shapeStore';
+import { Shape, Obstacle } from '@/stores/shapeStore';
 
 interface ThreeSceneProps {
   shapes: Shape[];
+  obstacles?: Obstacle[];
   buildingHeight: number;
 }
 
@@ -123,7 +124,7 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
   return (
     <mesh geometry={geometry} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
       <meshStandardMaterial 
-        color="hsl(35, 91%, 55%)" 
+        color="hsl(142, 71%, 55%)" 
         transparent 
         opacity={0.9}
         side={THREE.DoubleSide}
@@ -134,7 +135,93 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
   );
 };
 
-export const ThreeScene = ({ shapes, buildingHeight }: ThreeSceneProps) => {
+const Obstacles3D = ({ obstacles }: { obstacles: Obstacle[] }) => {
+  const obstacleGeometries = useMemo(() => {
+    if (!obstacles || obstacles.length === 0) return [];
+
+    return obstacles.map((obstacle) => {
+      let shapeOutline: THREE.Shape;
+      
+      if (obstacle.type === 'rectangle' || obstacle.type === 'square') {
+        const length = (obstacle.dimensions.length || 1);
+        const width = (obstacle.dimensions.width || obstacle.dimensions.length || 1);
+        
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(obstacle.position.x, obstacle.position.y);
+        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y);
+        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y + width);
+        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + width);
+        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y);
+        
+      } else if (obstacle.type === 'circle') {
+        const radius = obstacle.dimensions.radius || 1;
+        shapeOutline = new THREE.Shape();
+        shapeOutline.absarc(
+          obstacle.position.x + radius, 
+          obstacle.position.y + radius, 
+          radius, 
+          0, 
+          Math.PI * 2, 
+          false
+        );
+      } else if (obstacle.type === 'triangle') {
+        const length = obstacle.dimensions.length || 1;
+        const height = (length * Math.sqrt(3)) / 2;
+        
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(obstacle.position.x + length / 2, obstacle.position.y);
+        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + height);
+        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y + height);
+        shapeOutline.lineTo(obstacle.position.x + length / 2, obstacle.position.y);
+      } else {
+        // Default to rectangle
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(obstacle.position.x, obstacle.position.y);
+        shapeOutline.lineTo(obstacle.position.x + 1, obstacle.position.y);
+        shapeOutline.lineTo(obstacle.position.x + 1, obstacle.position.y + 1);
+        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + 1);
+        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y);
+      }
+
+      const extrudeSettings = {
+        depth: obstacle.height,
+        bevelEnabled: true,
+        bevelThickness: 0.05,
+        bevelSize: 0.025,
+        bevelSegments: 1,
+      };
+
+      const extrudedGeometry = new THREE.ExtrudeGeometry(shapeOutline, extrudeSettings);
+      return { geometry: extrudedGeometry, id: obstacle.id };
+    });
+  }, [obstacles]);
+
+  return (
+    <>
+      {obstacleGeometries.map(({ geometry, id }) => (
+        <mesh 
+          key={id}
+          geometry={geometry} 
+          position={[0, 0, 0]} 
+          rotation={[-Math.PI / 2, 0, 0]} 
+          castShadow 
+          receiveShadow
+        >
+          <meshStandardMaterial 
+            color="hsl(0, 84%, 60%)" 
+            transparent 
+            opacity={0.9}
+            side={THREE.DoubleSide}
+            roughness={0.4}
+            metalness={0.1}
+          />
+        </mesh>
+      ))}
+    </>
+  );
+};
+
+export const ThreeScene = ({ shapes, obstacles = [], buildingHeight }: ThreeSceneProps) => {
   return (
     <div className="w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
       <Canvas
@@ -153,8 +240,9 @@ export const ThreeScene = ({ shapes, buildingHeight }: ThreeSceneProps) => {
         <Environment preset="city" />
         
         <Building3D shapes={shapes} height={buildingHeight} />
+        <Obstacles3D obstacles={obstacles} />
         
-        <Grid 
+        <Grid
           infiniteGrid 
           cellSize={1} 
           cellThickness={0.5} 

@@ -17,34 +17,62 @@ export interface Shape {
   merged: boolean;
 }
 
+export interface Obstacle {
+  id: string;
+  type: 'rectangle' | 'square' | 'circle' | 'triangle';
+  dimensions: {
+    length?: number;
+    width?: number;
+    radius?: number;
+  };
+  position: {
+    x: number;
+    y: number;
+  };
+  rotation: number;
+  height: number;
+}
+
 interface ShapeStore {
   shapes: Shape[];
+  obstacles: Obstacle[];
   selectedShapeId: string | null;
+  selectedObstacleId: string | null;
   activeShapeType: 'rectangle' | 'square' | 'circle' | 'triangle';
   canvasScale: number;
   canvasOffset: { x: number; y: number };
   shapeMergeEnabled: boolean;
+  obstacleMode: boolean;
   
   // Actions
   addShape: (shape: Omit<Shape, 'id' | 'connectedTo' | 'merged'>) => void;
+  addObstacle: (obstacle: Omit<Obstacle, 'id'>) => void;
   updateShape: (id: string, updates: Partial<Shape>) => void;
+  updateObstacle: (id: string, updates: Partial<Obstacle>) => void;
   deleteShape: (id: string) => void;
+  deleteObstacle: (id: string) => void;
   selectShape: (id: string | null) => void;
+  selectObstacle: (id: string | null) => void;
   setActiveShapeType: (type: Shape['type']) => void;
   setCanvasScale: (scale: number) => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setShapeMergeEnabled: (enabled: boolean) => void;
+  setObstacleMode: (enabled: boolean) => void;
   mergeShapes: (shapeIds: string[]) => void;
   clearCanvas: () => void;
+  clearObstacles: () => void;
 }
 
 export const useShapeStore = create<ShapeStore>((set, get) => ({
   shapes: [],
+  obstacles: [],
   selectedShapeId: null,
+  selectedObstacleId: null,
   activeShapeType: 'rectangle',
   canvasScale: 1,
   canvasOffset: { x: 0, y: 0 },
   shapeMergeEnabled: false,
+  obstacleMode: false,
 
   addShape: (shapeData) => {
     const newShape: Shape = {
@@ -60,10 +88,30 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     }));
   },
 
+  addObstacle: (obstacleData) => {
+    const newObstacle: Obstacle = {
+      ...obstacleData,
+      id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+
+    set((state) => ({
+      obstacles: [...state.obstacles, newObstacle],
+      selectedObstacleId: newObstacle.id,
+    }));
+  },
+
   updateShape: (id, updates) => {
     set((state) => ({
       shapes: state.shapes.map((shape) =>
         shape.id === id ? { ...shape, ...updates } : shape
+      ),
+    }));
+  },
+
+  updateObstacle: (id, updates) => {
+    set((state) => ({
+      obstacles: state.obstacles.map((obstacle) =>
+        obstacle.id === id ? { ...obstacle, ...updates } : obstacle
       ),
     }));
   },
@@ -75,8 +123,19 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     }));
   },
 
+  deleteObstacle: (id) => {
+    set((state) => ({
+      obstacles: state.obstacles.filter((obstacle) => obstacle.id !== id),
+      selectedObstacleId: state.selectedObstacleId === id ? null : state.selectedObstacleId,
+    }));
+  },
+
   selectShape: (id) => {
     set({ selectedShapeId: id });
+  },
+
+  selectObstacle: (id) => {
+    set({ selectedObstacleId: id });
   },
 
   setActiveShapeType: (type) => {
@@ -93,6 +152,10 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   setShapeMergeEnabled: (enabled) => {
     set({ shapeMergeEnabled: enabled });
+  },
+
+  setObstacleMode: (enabled) => {
+    set({ obstacleMode: enabled });
   },
 
   mergeShapes: (shapeIds) => {
@@ -119,6 +182,13 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     set({
       shapes: [],
       selectedShapeId: null,
+    });
+  },
+
+  clearObstacles: () => {
+    set({
+      obstacles: [],
+      selectedObstacleId: null,
     });
   },
 }));
