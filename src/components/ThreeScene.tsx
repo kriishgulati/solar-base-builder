@@ -20,14 +20,14 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
       let shapeOutline: THREE.Shape;
       
       if (shape.type === 'rectangle' || shape.type === 'square') {
-        const width = (shape.dimensions.width || 1);
-        const shapeHeight = (shape.dimensions.height || shape.dimensions.width || 1);
+        const length = (shape.dimensions.length || 1);
+        const width = (shape.dimensions.width || shape.dimensions.length || 1);
         
         shapeOutline = new THREE.Shape();
         shapeOutline.moveTo(shape.position.x, shape.position.y);
-        shapeOutline.lineTo(shape.position.x + width, shape.position.y);
-        shapeOutline.lineTo(shape.position.x + width, shape.position.y + shapeHeight);
-        shapeOutline.lineTo(shape.position.x, shape.position.y + shapeHeight);
+        shapeOutline.lineTo(shape.position.x + length, shape.position.y);
+        shapeOutline.lineTo(shape.position.x + length, shape.position.y + width);
+        shapeOutline.lineTo(shape.position.x, shape.position.y + width);
         shapeOutline.lineTo(shape.position.x, shape.position.y);
         
       } else if (shape.type === 'circle') {
@@ -41,6 +41,15 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
           Math.PI * 2, 
           false
         );
+      } else if (shape.type === 'triangle') {
+        const length = shape.dimensions.length || 1;
+        const height = (length * Math.sqrt(3)) / 2; // Equilateral triangle height
+        
+        shapeOutline = new THREE.Shape();
+        shapeOutline.moveTo(shape.position.x + length / 2, shape.position.y); // Top point
+        shapeOutline.lineTo(shape.position.x, shape.position.y + height); // Bottom left
+        shapeOutline.lineTo(shape.position.x + length, shape.position.y + height); // Bottom right
+        shapeOutline.lineTo(shape.position.x + length / 2, shape.position.y); // Back to top
       } else {
         // Default to rectangle if type is unknown
         shapeOutline = new THREE.Shape();

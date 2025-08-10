@@ -66,10 +66,10 @@ export const SimpleCanvas = () => {
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         
-        const startX = (shape.position.x + (shape.dimensions.width || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const startY = (shape.position.y + (shape.dimensions.height || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const endX = (connectedShape.position.x + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const endY = (connectedShape.position.y + (connectedShape.dimensions.height || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const startX = (shape.position.x + (shape.dimensions.length || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const startY = (shape.position.y + (shape.dimensions.width || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const endX = (connectedShape.position.x + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        const endY = (connectedShape.position.y + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
 
         ctx.beginPath();
         ctx.moveTo(startX, startY);
@@ -113,11 +113,21 @@ export const SimpleCanvas = () => {
         ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
+      } else if (shape.type === 'triangle') {
+        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        const height = (length * Math.sqrt(3)) / 2; // Equilateral triangle height
+        ctx.beginPath();
+        ctx.moveTo(length / 2, 0); // Top point
+        ctx.lineTo(0, height); // Bottom left
+        ctx.lineTo(length, height); // Bottom right
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       } else {
-        const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (shape.dimensions.height || 0) * PIXELS_PER_METER * canvasScale;
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeRect(0, 0, width, height);
+        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        ctx.fillRect(0, 0, length, width);
+        ctx.strokeRect(0, 0, length, width);
       }
 
       ctx.restore();
@@ -134,10 +144,17 @@ export const SimpleCanvas = () => {
         const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
         const distance = Math.sqrt((x - shapeX - radius) ** 2 + (y - shapeY - radius) ** 2);
         if (distance <= radius) return shape.id;
+      } else if (shape.type === 'triangle') {
+        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        const height = (length * Math.sqrt(3)) / 2;
+        // Simple triangle hit detection using bounding box for now
+        if (x >= shapeX && x <= shapeX + length && y >= shapeY && y <= shapeY + height) {
+          return shape.id;
+        }
       } else {
-        const width = (shape.dimensions.width || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (shape.dimensions.height || 0) * PIXELS_PER_METER * canvasScale;
-        if (x >= shapeX && x <= shapeX + width && y >= shapeY && y <= shapeY + height) {
+        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+        if (x >= shapeX && x <= shapeX + length && y >= shapeY && y <= shapeY + width) {
           return shape.id;
         }
       }
@@ -244,7 +261,9 @@ export const SimpleCanvas = () => {
               <div className="text-xs text-muted-foreground">
                 {selectedShape.type === 'circle' 
                   ? `Radius: ${selectedShape.dimensions.radius?.toFixed(1)}m`
-                  : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.height?.toFixed(1)}m`
+                  : selectedShape.type === 'triangle' || selectedShape.type === 'square'
+                    ? `Length: ${selectedShape.dimensions.length?.toFixed(1)}m`
+                    : `${selectedShape.dimensions.length?.toFixed(1)}m × ${selectedShape.dimensions.width?.toFixed(1)}m`
                 }
               </div>
             </div>
@@ -269,9 +288,9 @@ export const SimpleCanvas = () => {
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        width={800}
-        height={600}
-        className="cursor-crosshair"
+        width={1200}
+        height={800}
+        className="cursor-crosshair w-full h-full"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

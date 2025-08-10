@@ -10,20 +10,16 @@ import {
   Square, 
   RectangleHorizontal, 
   Circle, 
-  PenTool, 
+  Triangle, 
   RotateCw, 
   Trash2, 
-  Plus,
-  Link,
-  Download
+  Plus
 } from 'lucide-react';
 
 export const ShapeToolbar = () => {
   const {
     activeShapeType,
     setActiveShapeType,
-    isDrawingMode,
-    setDrawingMode,
     shapeMergeEnabled,
     setShapeMergeEnabled,
     addShape,
@@ -31,8 +27,8 @@ export const ShapeToolbar = () => {
   } = useShapeStore();
 
   const [dimensions, setDimensions] = useState({
+    length: 10,
     width: 10,
-    height: 10,
     radius: 5,
   });
   const [rotation, setRotation] = useState(0);
@@ -45,7 +41,7 @@ export const ShapeToolbar = () => {
       case 'rectangle':
         shapeData = {
           type: 'rectangle' as const,
-          dimensions: { width: dimensions.width, height: dimensions.height },
+          dimensions: { length: dimensions.length, width: dimensions.width },
           position: basePosition,
           rotation,
         };
@@ -53,7 +49,7 @@ export const ShapeToolbar = () => {
       case 'square':
         shapeData = {
           type: 'square' as const,
-          dimensions: { width: dimensions.width, height: dimensions.width },
+          dimensions: { length: dimensions.length },
           position: basePosition,
           rotation,
         };
@@ -62,6 +58,14 @@ export const ShapeToolbar = () => {
         shapeData = {
           type: 'circle' as const,
           dimensions: { radius: dimensions.radius },
+          position: basePosition,
+          rotation,
+        };
+        break;
+      case 'triangle':
+        shapeData = {
+          type: 'triangle' as const,
+          dimensions: { length: dimensions.length },
           position: basePosition,
           rotation,
         };
@@ -77,7 +81,7 @@ export const ShapeToolbar = () => {
     { type: 'rectangle', icon: RectangleHorizontal, label: 'Rectangle' },
     { type: 'square', icon: Square, label: 'Square' },
     { type: 'circle', icon: Circle, label: 'Circle' },
-    { type: 'polygon', icon: PenTool, label: 'Custom Shape' },
+    { type: 'triangle', icon: Triangle, label: 'Triangle' },
   ] as const;
 
   return (
@@ -129,8 +133,33 @@ export const ShapeToolbar = () => {
                 step="0.1"
               />
             </div>
+          ) : activeShapeType === 'triangle' || activeShapeType === 'square' ? (
+            <div className="space-y-2">
+              <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
+              <Input
+                id="length"
+                type="number"
+                value={dimensions.length}
+                onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
+                className="h-9"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
+                <Input
+                  id="length"
+                  type="number"
+                  value={dimensions.length}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
+                  className="h-9"
+                  min="0.1"
+                  step="0.1"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="width" className="text-xs text-muted-foreground">Width</Label>
                 <Input
@@ -143,20 +172,6 @@ export const ShapeToolbar = () => {
                   step="0.1"
                 />
               </div>
-              {activeShapeType === 'rectangle' && (
-                <div className="space-y-2">
-                  <Label htmlFor="height" className="text-xs text-muted-foreground">Height</Label>
-                  <Input
-                    id="height"
-                    type="number"
-                    value={dimensions.height}
-                    onChange={(e) => setDimensions(prev => ({ ...prev, height: Number(e.target.value) }))}
-                    className="h-9"
-                    min="0.1"
-                    step="0.1"
-                  />
-                </div>
-              )}
             </div>
           )}
 
@@ -200,15 +215,6 @@ export const ShapeToolbar = () => {
             />
           </div>
 
-          {/* Drawing Mode Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="drawing-toggle" className="text-sm text-foreground">Drawing Mode</Label>
-            <Switch
-              id="drawing-toggle"
-              checked={isDrawingMode}
-              onCheckedChange={setDrawingMode}
-            />
-          </div>
         </div>
 
         <Separator />

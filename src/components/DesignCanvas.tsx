@@ -77,10 +77,14 @@ export const DesignCanvas = () => {
     };
 
     // Handle dimension changes
-    if (shape.type === 'rectangle' || shape.type === 'square') {
+    if (shape.type === 'rectangle') {
       updates.dimensions = {
-        width: newAttrs.width / PIXELS_PER_METER,
-        height: newAttrs.height / PIXELS_PER_METER,
+        length: newAttrs.width / PIXELS_PER_METER,
+        width: newAttrs.height / PIXELS_PER_METER,
+      };
+    } else if (shape.type === 'square' || shape.type === 'triangle') {
+      updates.dimensions = {
+        length: newAttrs.width / PIXELS_PER_METER,
       };
     } else if (shape.type === 'circle') {
       updates.dimensions = {
@@ -130,12 +134,20 @@ export const DesignCanvas = () => {
 
     switch (shape.type) {
       case 'rectangle':
-      case 'square':
         return (
           <Rect
             {...commonProps}
-            width={(shape.dimensions.width || 0) * PIXELS_PER_METER}
-            height={(shape.dimensions.height || 0) * PIXELS_PER_METER}
+            width={(shape.dimensions.length || 0) * PIXELS_PER_METER}
+            height={(shape.dimensions.width || 0) * PIXELS_PER_METER}
+          />
+        );
+      case 'square':
+      case 'triangle':
+        return (
+          <Rect
+            {...commonProps}
+            width={(shape.dimensions.length || 0) * PIXELS_PER_METER}
+            height={(shape.dimensions.length || 0) * PIXELS_PER_METER}
           />
         );
       case 'circle':
@@ -178,7 +190,9 @@ export const DesignCanvas = () => {
               <div className="text-xs text-muted-foreground">
                 {selectedShape.type === 'circle' 
                   ? `Radius: ${selectedShape.dimensions.radius?.toFixed(1)}m`
-                  : `${selectedShape.dimensions.width?.toFixed(1)}m × ${selectedShape.dimensions.height?.toFixed(1)}m`
+                  : selectedShape.type === 'triangle' || selectedShape.type === 'square'
+                    ? `Length: ${selectedShape.dimensions.length?.toFixed(1)}m`
+                    : `${selectedShape.dimensions.length?.toFixed(1)}m × ${selectedShape.dimensions.width?.toFixed(1)}m`
                 }
               </div>
             </div>
@@ -245,10 +259,10 @@ export const DesignCanvas = () => {
                 <Line
                   key={`${shape.id}-${connectedId}`}
                   points={[
-                    shape.position.x * PIXELS_PER_METER + (shape.dimensions.width || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.height || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    connectedShape.position.x * PIXELS_PER_METER + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.height || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    shape.position.x * PIXELS_PER_METER + (shape.dimensions.length || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.width || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    connectedShape.position.x * PIXELS_PER_METER + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
                   ]}
                   stroke="hsl(142 76% 55%)"
                   strokeWidth={3}
