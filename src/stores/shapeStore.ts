@@ -19,18 +19,12 @@ export interface Shape {
 
 export interface Obstacle {
   id: string;
-  type: 'rectangle' | 'square' | 'circle' | 'triangle';
-  dimensions: {
-    length?: number;
-    width?: number;
-    radius?: number;
-  };
-  position: {
-    x: number;
-    y: number;
-  };
+  type: Shape['type'];
+  dimensions: Shape['dimensions'];
+  position: Shape['position'];
   rotation: number;
-  height: number;
+  height: number;         // obstacle's own height
+  totalHeight: number;    // baseHeight + height
 }
 
 interface ShapeStore {
@@ -43,6 +37,7 @@ interface ShapeStore {
   canvasOffset: { x: number; y: number };
   shapeMergeEnabled: boolean;
   obstacleMode: boolean;
+  baseHeight: number;
   
   // Actions
   addShape: (shape: Omit<Shape, 'id' | 'connectedTo' | 'merged'>) => void;
@@ -61,6 +56,7 @@ interface ShapeStore {
   mergeShapes: (shapeIds: string[]) => void;
   clearCanvas: () => void;
   clearObstacles: () => void;
+  setBaseHeight: (height: number) => void;
 }
 
 export const useShapeStore = create<ShapeStore>((set, get) => ({
@@ -73,6 +69,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   canvasOffset: { x: 0, y: 0 },
   shapeMergeEnabled: false,
   obstacleMode: false,
+  baseHeight: 3, // Default height
 
   addShape: (shapeData) => {
     const newShape: Shape = {
@@ -191,4 +188,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
       selectedObstacleId: null,
     });
   },
+
+  setBaseHeight: (height: number) => set({ baseHeight: height }),
 }));

@@ -6,7 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RotateCcw, Trash2, Plus } from 'lucide-react';
 
-export const ObstacleToolbar = () => {
+interface ObstacleToolbarProps {
+  onClose: () => void;
+  baseHeight: number;
+}
+
+export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) => {
   const {
     activeShapeType,
     setActiveShapeType,
@@ -60,27 +65,22 @@ export const ObstacleToolbar = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimensions.length, dimensions.width, dimensions.radius, rotation, height]);
 
+  // Use baseHeight when creating obstacles
   const handleAddObstacle = () => {
-    const obstacleData = {
+    addObstacle({
       type: activeShapeType,
-      dimensions: {
-        ...(activeShapeType === 'circle' ? { radius: dimensions.radius } : {}),
-        ...(activeShapeType === 'square' ? { length: dimensions.length } : {}),
-        ...(activeShapeType === 'rectangle' ? { length: dimensions.length, width: dimensions.width } : {}),
-        ...(activeShapeType === 'triangle' ? { length: dimensions.length } : {}),
-      },
-      position: { x: 5, y: 5 }, // Default position
-      rotation,
-      height,
-    };
-
-    addObstacle(obstacleData);
+      dimensions,
+      position: { x: 0, y: 0 },
+      rotation: rotation,
+      height: height,                // obstacle's own height
+      totalHeight: height + baseHeight  // combined height for 3D export
+    });
   };
 
   const resetRotation = () => setRotation(0);
 
   return (
-    <Card className="p-4 space-y-6">
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-foreground mb-3">Add Obstacles</h3>
         <p className="text-sm text-muted-foreground mb-4">
@@ -159,16 +159,20 @@ export const ObstacleToolbar = () => {
 
       {/* Height */}
       <div className="space-y-2">
-        <Label htmlFor="height" className="text-sm font-medium text-foreground">Height (m)</Label>
+        <Label className="text-xs text-muted-foreground">
+          Height (will be added to base height: {baseHeight}m)
+        </Label>
         <Input
-          id="height"
           type="number"
+          value={height}
+          onChange={(e) => setHeight(Number(e.target.value))}
           min="0.1"
           step="0.1"
-          value={height}
-          onChange={(e) => setHeight(parseFloat(e.target.value) || 2)}
-          className="h-8"
+          className="h-9"
         />
+        <div className="text-xs text-muted-foreground">
+          Total height will be: {(baseHeight + height).toFixed(1)}m
+        </div>
       </div>
 
       {/* Rotation */}
@@ -220,6 +224,6 @@ export const ObstacleToolbar = () => {
           {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} placed
         </div>
       )}
-    </Card>
+    </div>
   );
 };

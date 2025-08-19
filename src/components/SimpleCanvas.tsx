@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useShapeStore } from '@/stores/shapeStore';
 import { ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react';
+import { TopViewCanvas } from '@/components/TopViewCanvas';
+import { ObstacleToolbar } from '@/components/ObstacleToolbar';
 
 const PIXELS_PER_METER = 50; // 1 meter = 50 pixels for display
 
@@ -351,16 +353,27 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
 
 export const SiteBaseDefinition = () => {
   const [showObstacleMode, setShowObstacleMode] = useState(false);
+  const { baseHeight, shapes } = useShapeStore(); // Add shapes to destructuring
 
   return (
-    <div>
+    <div className="h-screen bg-gradient-subtle">
       {showObstacleMode ? (
-        // Render your obstacle creation component here
-        <ObstacleToolbar onClose={() => setShowObstacleMode(false)} />
+        <div className="h-full flex">
+          {/* Left Panel - Obstacle Tools */}
+          <div className="w-1/5 p-4 border-r bg-background">
+            <ObstacleToolbar 
+              onClose={() => setShowObstacleMode(false)}
+              baseHeight={baseHeight}
+            />
+          </div>
+          {/* Right Panel - Canvas */}
+          <div className="w-4/5 p-4">
+            <TopViewCanvas shapes={shapes} />
+          </div>
+        </div>
       ) : (
         <SimpleCanvas setShowObstacleMode={setShowObstacleMode} />
       )}
-      {/* Other components and logic for SiteBaseDefinition */}
     </div>
   );
 };

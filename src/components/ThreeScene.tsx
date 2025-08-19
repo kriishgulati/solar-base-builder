@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as THREE from 'three';
@@ -6,7 +6,7 @@ import { Shape, Obstacle } from '@/stores/shapeStore';
 
 interface ThreeSceneProps {
   shapes: Shape[];
-  obstacles?: Obstacle[];
+  obstacles: Obstacle[];
   buildingHeight: number;
 }
 
@@ -135,93 +135,99 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
   );
 };
 
-const Obstacles3D = ({ obstacles }: { obstacles: Obstacle[] }) => {
-  const obstacleGeometries = useMemo(() => {
-    if (!obstacles || obstacles.length === 0) return [];
+// Update the interface to include shapes
+interface Obstacles3DProps {
+  obstacles: Obstacle[];
+  baseHeight: number;
+  shapes: Shape[];  // Add shapes to props
+}
 
-    return obstacles.map((obstacle) => {
-      let shapeOutline: THREE.Shape;
-      
-      if (obstacle.type === 'rectangle' || obstacle.type === 'square') {
-        const length = (obstacle.dimensions.length || 1);
-        const width = (obstacle.dimensions.width || obstacle.dimensions.length || 1);
-        
-        shapeOutline = new THREE.Shape();
-        shapeOutline.moveTo(obstacle.position.x, obstacle.position.y);
-        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y);
-        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y + width);
-        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + width);
-        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y);
-        
-      } else if (obstacle.type === 'circle') {
-        const radius = obstacle.dimensions.radius || 1;
-        shapeOutline = new THREE.Shape();
-        shapeOutline.absarc(
-          obstacle.position.x + radius, 
-          obstacle.position.y + radius, 
-          radius, 
-          0, 
-          Math.PI * 2, 
-          false
-        );
-      } else if (obstacle.type === 'triangle') {
-        const length = obstacle.dimensions.length || 1;
-        const height = (length * Math.sqrt(3)) / 2;
-        
-        shapeOutline = new THREE.Shape();
-        shapeOutline.moveTo(obstacle.position.x + length / 2, obstacle.position.y);
-        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + height);
-        shapeOutline.lineTo(obstacle.position.x + length, obstacle.position.y + height);
-        shapeOutline.lineTo(obstacle.position.x + length / 2, obstacle.position.y);
-      } else {
-        // Default to rectangle
-        shapeOutline = new THREE.Shape();
-        shapeOutline.moveTo(obstacle.position.x, obstacle.position.y);
-        shapeOutline.lineTo(obstacle.position.x + 1, obstacle.position.y);
-        shapeOutline.lineTo(obstacle.position.x + 1, obstacle.position.y + 1);
-        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y + 1);
-        shapeOutline.lineTo(obstacle.position.x, obstacle.position.y);
-      }
-
-      const extrudeSettings = {
-        depth: obstacle.height,
-        bevelEnabled: true,
-        bevelThickness: 0.05,
-        bevelSize: 0.025,
-        bevelSegments: 1,
-      };
-
-      const extrudedGeometry = new THREE.ExtrudeGeometry(shapeOutline, extrudeSettings);
-      return { geometry: extrudedGeometry, id: obstacle.id };
-    });
-  }, [obstacles]);
-
+// Update the component to receive shapes prop
+const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
   return (
     <>
-      {obstacleGeometries.map(({ geometry, id }) => (
-        <mesh 
-          key={id}
-          geometry={geometry} 
-          position={[0, 0, 0]} 
-          rotation={[-Math.PI / 2, 0, 0]} 
-          castShadow 
-          receiveShadow
-        >
-          <meshStandardMaterial 
-            color="hsl(0, 84%, 60%)" 
-            transparent 
-            opacity={0.9}
-            side={THREE.DoubleSide}
-            roughness={0.4}
-            metalness={0.1}
-          />
-        </mesh>
-      ))}
+      {obstacles.map((obstacle) => {
+        let geometry;
+        
+        // Match 2D canvas coordinates to 3D world coordinates
+        const PIXELS_PER_METER = 20; // Must match your 2D canvas scale
+        
+        // Get base dimensions for reference
+        const baseShape = shapes[0]; // Assuming first shape is the base
+        const baseLength = baseShape?.dimensions.length || 1;
+        const baseWidth = baseShape?.dimensions.width || 1;
+        
+        // Calculate position relative to base shape's center
+        const adjustedX = obstacle.position.x - (baseLength / 2);
+        const adjustedZ = obstacle.position.y - (baseWidth / 2);
+
+        if (obstacle.type === 'circle') {
+          const radius = obstacle.dimensions.radius || 1;
+          geometry = new THREE.CylinderGeometry(
+            radius,
+            radius,
+            obstacle.height,
+            32
+          );
+        } else if (obstacle.type === 'triangle') {
+          const length = obstacle.dimensions.length || 1;
+          const height = (length * Math.sqrt(3)) / 2;
+          
+          const shape = new THREE.Shape();
+          shape.moveTo(0, -length/2); // Top point
+          shape.lineTo(-height/2, length/2); // Bottom left
+          shape.lineTo(height/2, length/2); // Bottom right
+          shape.lineTo(0, -length/2); // Back to top
+
+          const extrudeSettings = {
+            depth: obstacle.height,
+            bevelEnabled: false
+          };
+
+          geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          // Rotate to stand upright
+          geometry.rotateX(Math.PI / 2);
+        } else {
+          // Rectangle or Square (default)
+          geometry = new THREE.BoxGeometry(
+            obstacle.dimensions.length || 1,
+            obstacle.height,
+            obstacle.dimensions.width || 1
+          );
+        }
+
+        // Calculate the correct Y position: baseHeight + half of obstacle height
+        const yPosition = baseHeight + (obstacle.height / 2);
+
+        // Create a group to handle rotations correctly
+        return (
+          <group
+            key={obstacle.id}
+            position={[adjustedX, yPosition, adjustedZ]}
+            rotation={[0, obstacle.rotation * (Math.PI / 180), 0]}
+          >
+            <mesh
+              geometry={geometry}
+              castShadow
+              receiveShadow
+            >
+              <meshStandardMaterial
+                color="hsl(0, 84%, 60%)"
+                transparent
+                opacity={0.9}
+                side={THREE.DoubleSide}
+                roughness={0.4}
+                metalness={0.1}
+              />
+            </mesh>
+          </group>
+        );
+      })}
     </>
   );
 };
 
-export const ThreeScene = ({ shapes, obstacles = [], buildingHeight }: ThreeSceneProps) => {
+export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProps) => {
   return (
     <div className="w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
       <Canvas
@@ -239,8 +245,15 @@ export const ThreeScene = ({ shapes, obstacles = [], buildingHeight }: ThreeScen
         
         <Environment preset="city" />
         
+        {/* Base building */}
         <Building3D shapes={shapes} height={buildingHeight} />
-        <Obstacles3D obstacles={obstacles} />
+        
+        {/* Obstacles - update the Obstacles3D component to use buildingHeight */}
+        <Obstacles3D 
+          obstacles={obstacles} 
+          baseHeight={buildingHeight}
+          shapes={shapes}  // Pass shapes to Obstacles3D
+        />
         
         <Grid
           infiniteGrid 

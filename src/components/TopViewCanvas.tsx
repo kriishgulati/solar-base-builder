@@ -1,3 +1,5 @@
+const PIXELS_PER_METER = 20;
+
 import { useRef, useEffect, useState } from 'react';
 import { useShapeStore, Shape, Obstacle } from '@/stores/shapeStore';
 
@@ -7,9 +9,22 @@ interface TopViewCanvasProps {
 
 export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [scale, setScale] = useState(1);
+  const [centerCoords, setCenterCoords] = useState({ x: 0, y: 0 });
+  
   const [isDragging, setIsDragging] = useState(false);
   const [draggedObstacle, setDraggedObstacle] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    setCenterCoords({
+      x: canvas.width / 2,
+      y: canvas.height / 2
+    });
+  }, []);
 
   const {
     obstacles,
@@ -37,20 +52,16 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Save context and apply transformations
     ctx.save();
     ctx.translate(canvasOffset.x, canvasOffset.y);
     ctx.scale(canvasScale, canvasScale);
 
-    // Draw grid
     drawGrid(ctx, canvas.width, canvas.height);
 
-    // Draw base shapes (in lighter color to show they're the base)
     shapes.forEach((shape) => {
       drawShape(ctx, shape, false, false, 'base');
     });
 
-    // Draw obstacles (in different color)
     obstacles.forEach((obstacle) => {
       const isSelected = selectedObstacleId === obstacle.id;
       drawObstacle(ctx, obstacle, isSelected);
@@ -64,27 +75,40 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     ctx.strokeStyle = 'hsl(213, 30%, 90%)';
     ctx.lineWidth = 0.5;
 
-    for (let x = 0; x <= width * 2; x += gridSize) {
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // Draw vertical lines
+    for (let x = -width; x <= width; x += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(x - canvasOffset.x, -canvasOffset.y);
-      ctx.lineTo(x - canvasOffset.x, height * 2 - canvasOffset.y);
+      ctx.moveTo(centerX + x - canvasOffset.x, -canvasOffset.y);
+      ctx.lineTo(centerX + x - canvasOffset.x, height - canvasOffset.y);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= height * 2; y += gridSize) {
+    // Draw horizontal lines
+    for (let y = -height; y <= height; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(-canvasOffset.x, y - canvasOffset.y);
-      ctx.lineTo(width * 2 - canvasOffset.x, y - canvasOffset.y);
+      ctx.moveTo(-canvasOffset.x, centerY + y - canvasOffset.y);
+      ctx.lineTo(width - canvasOffset.x, centerY + y - canvasOffset.y);
       ctx.stroke();
     }
   };
 
   const drawShape = (ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isHovered: boolean, type: 'base' | 'obstacle' = 'base') => {
     ctx.save();
-    ctx.translate(shape.position.x * 20, shape.position.y * 20);
+    
+    // Calculate center position using canvas dimensions
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+    
+    // Add canvasOffset to properly position relative to grid
+    const x = (canvasWidth / 2) + (shape.position.x * PIXELS_PER_METER * scale) - canvasOffset.x;
+    const y = (canvasHeight / 2) + (shape.position.y * PIXELS_PER_METER * scale) - canvasOffset.y;
+    
+    ctx.translate(x, y);
     ctx.rotate((shape.rotation * Math.PI) / 180);
 
-    // Base shapes styling
     if (type === 'base') {
       ctx.fillStyle = isSelected ? 'hsl(142, 71%, 80%)' : 'hsl(142, 71%, 85%)';
       ctx.strokeStyle = 'hsl(142, 71%, 60%)';
@@ -127,10 +151,18 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   const drawObstacle = (ctx: CanvasRenderingContext2D, obstacle: Obstacle, isSelected: boolean) => {
     ctx.save();
-    ctx.translate(obstacle.position.x * 20, obstacle.position.y * 20);
+    
+    // Calculate center position using canvas dimensions
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+    
+    // Add canvasOffset to properly position relative to grid
+    const x = (canvasWidth / 2) + (obstacle.position.x * PIXELS_PER_METER) - canvasOffset.x;
+    const y = (canvasHeight / 2) + (obstacle.position.y * PIXELS_PER_METER) - canvasOffset.y;
+    
+    ctx.translate(x, y);
     ctx.rotate((obstacle.rotation * Math.PI) / 180);
 
-    // Obstacle styling - different color
     ctx.fillStyle = isSelected ? 'hsl(0, 84%, 70%)' : 'hsl(0, 84%, 75%)';
     ctx.strokeStyle = 'hsl(0, 84%, 50%)';
     ctx.lineWidth = isSelected ? 3 : 2;
@@ -166,13 +198,16 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   };
 
   const getObstacleAt = (x: number, y: number): string | null => {
-    const transformedX = (x - canvasOffset.x) / canvasScale;
-    const transformedY = (y - canvasOffset.y) / canvasScale;
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const transformedX = ((x - canvasOffset.x) / canvasScale) - (canvas.width / 2);
+    const transformedY = ((y - canvasOffset.y) / canvasScale) - (canvas.height / 2);
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obstacle = obstacles[i];
-      const obstacleX = obstacle.position.x * 20;
-      const obstacleY = obstacle.position.y * 20;
+      const obstacleX = obstacle.position.x * PIXELS_PER_METER;
+      const obstacleY = obstacle.position.y * PIXELS_PER_METER;
 
       let isInside = false;
 
@@ -277,7 +312,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   useEffect(() => {
     drawShapes();
-  }, [shapes, obstacles, selectedObstacleId, canvasScale, canvasOffset]);
+  }, [shapes, obstacles, selectedObstacleId, canvasScale, canvasOffset, scale, centerCoords]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
