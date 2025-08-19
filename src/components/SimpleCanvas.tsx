@@ -6,11 +6,14 @@ import { ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react';
 
 const PIXELS_PER_METER = 50; // 1 meter = 50 pixels for display
 
-export const SimpleCanvas = () => {
+export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v: boolean) => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragShape, setDragShape] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<{start: {x: number, y: number}, end: {x: number, y: number}} | null>(null);
+  const [groupDragOffset, setGroupDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
 
   const {
     shapes,
@@ -81,53 +84,64 @@ export const SimpleCanvas = () => {
 
     // Draw shapes
     shapes.forEach(shape => {
-      const x = shape.position.x * PIXELS_PER_METER * canvasScale;
-      const y = shape.position.y * PIXELS_PER_METER * canvasScale;
-      
       const isSelected = selectedShapeId === shape.id;
       const isMerged = shape.merged;
-      
+
+      // Set fill and stroke styles
       ctx.fillStyle = isMerged 
         ? 'hsl(142 76% 55% / 0.8)' 
         : isSelected 
           ? 'hsl(35 91% 55%)' 
           : 'hsl(35 91% 55% / 0.8)';
-      
       ctx.strokeStyle = isMerged 
         ? 'hsl(142 76% 55%)' 
         : isSelected 
           ? 'hsl(213 100% 60%)' 
           : 'hsl(35 91% 55%)';
-      
       ctx.lineWidth = isSelected ? 3 : 2;
 
-      ctx.save();
-      ctx.translate(x, y);
-      if (shape.rotation) {
-        ctx.rotate((shape.rotation * Math.PI) / 180);
+      // Get shape dimensions
+      const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+      const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+      const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+      const rotation = (shape.rotation || 0) * Math.PI / 180;
+
+      // Calculate center
+      let centerX, centerY;
+      if (shape.type === 'circle') {
+        centerX = (shape.position.x + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
+      } else {
+        centerX = (shape.position.x + (shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y + (shape.dimensions.width || shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
       }
 
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotation);
+
       if (shape.type === 'circle') {
-        const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
         ctx.beginPath();
-        ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+        ctx.arc(0, 0, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
       } else if (shape.type === 'triangle') {
-        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (length * Math.sqrt(3)) / 2; // Equilateral triangle height
+        // Equilateral triangle centered at (0,0)
+        const triLength = length;
+        const triHeight = (triLength * Math.sqrt(3)) / 2;
         ctx.beginPath();
-        ctx.moveTo(length / 2, 0); // Top point
-        ctx.lineTo(0, height); // Bottom left
-        ctx.lineTo(length, height); // Bottom right
+        ctx.moveTo(0, -triHeight / 2); // Top
+        ctx.lineTo(-triLength / 2, triHeight / 2); // Bottom left
+        ctx.lineTo(triLength / 2, triHeight / 2); // Bottom right
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
       } else {
-        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        ctx.fillRect(0, 0, length, width);
-        ctx.strokeRect(0, 0, length, width);
+        // Rectangle centered at (0,0)
+        ctx.beginPath();
+        ctx.rect(-length / 2, -width / 2, length, width);
+        ctx.fill();
+        ctx.stroke();
       }
 
       ctx.restore();
@@ -137,25 +151,45 @@ export const SimpleCanvas = () => {
   const getShapeAt = (x: number, y: number) => {
     for (let i = shapes.length - 1; i >= 0; i--) {
       const shape = shapes[i];
-      const shapeX = shape.position.x * PIXELS_PER_METER * canvasScale;
-      const shapeY = shape.position.y * PIXELS_PER_METER * canvasScale;
-      
+      const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+      const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
+      const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
+      const rotation = (shape.rotation || 0) * Math.PI / 180;
+
+      let centerX, centerY;
       if (shape.type === 'circle') {
-        const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
-        const distance = Math.sqrt((x - shapeX - radius) ** 2 + (y - shapeY - radius) ** 2);
+        centerX = (shape.position.x + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
+        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
         if (distance <= radius) return shape.id;
-      } else if (shape.type === 'triangle') {
-        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        const height = (length * Math.sqrt(3)) / 2;
-        // Simple triangle hit detection using bounding box for now
-        if (x >= shapeX && x <= shapeX + length && y >= shapeY && y <= shapeY + height) {
-          return shape.id;
-        }
       } else {
-        const length = (shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        const width = (shape.dimensions.width || shape.dimensions.length || 0) * PIXELS_PER_METER * canvasScale;
-        if (x >= shapeX && x <= shapeX + length && y >= shapeY && y <= shapeY + width) {
-          return shape.id;
+        centerX = (shape.position.x + (shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y + (shape.dimensions.width || shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
+
+        // Transform click point into shape's local coordinates
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const localX =  dx * Math.cos(-rotation) - dy * Math.sin(-rotation);
+        const localY =  dx * Math.sin(-rotation) + dy * Math.cos(-rotation);
+
+        if (shape.type === 'triangle') {
+          // Simple bounding box for triangle (not perfect, but better)
+          const triLength = length;
+          const triHeight = (triLength * Math.sqrt(3)) / 2;
+          if (
+            localX >= -triLength / 2 && localX <= triLength / 2 &&
+            localY >= -triHeight / 2 && localY <= triHeight / 2
+          ) {
+            return shape.id;
+          }
+        } else {
+          // Rectangle
+          if (
+            localX >= -length / 2 && localX <= length / 2 &&
+            localY >= -width / 2 && localY <= width / 2
+          ) {
+            return shape.id;
+          }
         }
       }
     }
@@ -296,6 +330,35 @@ export const SimpleCanvas = () => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
+
+      {/* Add Obstacles Button */}
+      <div className="absolute bottom-4 right-4 z-10">
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={() => setShowObstacleMode(true)}
+            className="bg-primary hover:bg-primary/90"
+            disabled={shapes.length === 0}
+          >
+            Add Obstacles
+          </Button>
+        </div>
+      </div>
     </Card>
+  );
+};
+
+export const SiteBaseDefinition = () => {
+  const [showObstacleMode, setShowObstacleMode] = useState(false);
+
+  return (
+    <div>
+      {showObstacleMode ? (
+        // Render your obstacle creation component here
+        <ObstacleToolbar onClose={() => setShowObstacleMode(false)} />
+      ) : (
+        <SimpleCanvas setShowObstacleMode={setShowObstacleMode} />
+      )}
+      {/* Other components and logic for SiteBaseDefinition */}
+    </div>
   );
 };

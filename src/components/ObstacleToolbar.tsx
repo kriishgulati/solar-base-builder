@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useShapeStore } from '@/stores/shapeStore';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,8 +12,13 @@ export const ObstacleToolbar = () => {
     setActiveShapeType,
     addObstacle,
     clearObstacles,
-    obstacles
+    obstacles,
+    selectedObstacleId,
+    updateObstacle,
+    selectObstacle,
   } = useShapeStore();
+
+  const selectedObstacle = obstacles.find(o => o.id === selectedObstacleId);
 
   const [dimensions, setDimensions] = useState({
     length: 1,
@@ -22,6 +27,38 @@ export const ObstacleToolbar = () => {
   });
   const [rotation, setRotation] = useState(0);
   const [height, setHeight] = useState(2);
+
+  // Sync local state with selected obstacle
+  useEffect(() => {
+    if (selectedObstacle) {
+      setDimensions({
+        length: selectedObstacle.dimensions.length ?? 1,
+        width: selectedObstacle.dimensions.width ?? 1,
+        radius: selectedObstacle.dimensions.radius ?? 1,
+      });
+      setRotation(selectedObstacle.rotation ?? 0);
+      setHeight(selectedObstacle.height ?? 2);
+      setActiveShapeType(selectedObstacle.type);
+    }
+  }, [selectedObstacleId]);
+
+  // Update obstacle in real time when dimensions or rotation change
+  useEffect(() => {
+    if (selectedObstacle) {
+      updateObstacle(selectedObstacle.id, {
+        ...selectedObstacle,
+        dimensions: {
+          ...selectedObstacle.dimensions,
+          length: dimensions.length,
+          width: dimensions.width,
+          radius: dimensions.radius,
+        },
+        rotation,
+        height,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimensions.length, dimensions.width, dimensions.radius, rotation, height]);
 
   const handleAddObstacle = () => {
     const obstacleData = {
@@ -141,9 +178,9 @@ export const ObstacleToolbar = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={resetRotation}
+            onClick={() => setRotation((prev) => (prev + 90) % 360)}
             className="h-6 w-6 p-0"
-            title="Reset rotation"
+            title="Rotate 90°"
           >
             <RotateCcw size={12} />
           </Button>

@@ -1,0 +1,49 @@
+[
+  {
+    "type": "rectangle",
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "dimensions": {
+      "width": 300,
+      "height": 20,
+      "depth": 200
+    },
+    "projectId": "house-project-001",
+    "createdAt": "2025-08-13T12:00:00.000Z"
+  },
+  {
+    "type": "cylinder",
+    "position": {
+      "x": 0,
+      "y": 10, 
+      "z": 0
+    },
+    "rotation": 0,
+    "dimensions": {
+      "radius": 30,
+      "height": 100
+    },
+    "projectId": "house-project-001",
+    "createdAt": "2025-08-13T12:00:00.000Z"
+  },
+  {
+    "type": "prism",
+    "position": {
+      "x": 0,
+      "y": 110, 
+      "z": 0
+    },
+    "rotation": 0,
+    "dimensions": {
+      "width": 80,
+      "height": 50,
+      "depth": 80
+    },
+    "projectId": "house-project-001",
+    "createdAt": "2025-08-13T12:00:00.000Z"
+  }
+]

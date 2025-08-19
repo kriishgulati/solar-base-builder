@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 
-export const ShapeToolbar = () => {
+export const ShapeToolbar = ({ isDragging = false }) => {
   const {
     activeShapeType,
     setActiveShapeType,
@@ -24,6 +24,10 @@ export const ShapeToolbar = () => {
     setShapeMergeEnabled,
     addShape,
     clearCanvas,
+    selectedShapeId,
+    shapes,
+    updateShape,
+    selectShape,
   } = useShapeStore();
 
   const [dimensions, setDimensions] = useState({
@@ -32,6 +36,39 @@ export const ShapeToolbar = () => {
     radius: 5,
   });
   const [rotation, setRotation] = useState(0);
+
+  // Find the selected shape
+  const selectedShape = shapes.find(s => s.id === selectedShapeId);
+
+  // Sync local state with selected shape
+  useEffect(() => {
+    if (selectedShape) {
+      setDimensions({
+        length: selectedShape.dimensions.length ?? 10,
+        width: selectedShape.dimensions.width ?? 10,
+        radius: selectedShape.dimensions.radius ?? 5,
+      });
+      setRotation(selectedShape.rotation ?? 0);
+      setActiveShapeType(selectedShape.type);
+    }
+  }, [selectedShapeId]);
+
+  // Update shape in real time when dimensions or rotation change
+  useEffect(() => {
+    if (selectedShape && !isDragging) {
+      updateShape(selectedShape.id, {
+        ...selectedShape,
+        dimensions: {
+          ...selectedShape.dimensions,
+          length: dimensions.length,
+          width: dimensions.width,
+          radius: dimensions.radius,
+        },
+        rotation,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimensions.length, dimensions.width, dimensions.radius, rotation, isDragging]);
 
   const handleAddShape = () => {
     const basePosition = { x: 2, y: 2 }; // 2 meters from origin
@@ -189,7 +226,7 @@ export const ShapeToolbar = () => {
                 max="360"
                 step="1"
               />
-              <Button variant="outline" size="sm" onClick={() => setRotation(0)}>
+              <Button variant="outline" size="sm" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
                 <RotateCw size={16} />
               </Button>
             </div>

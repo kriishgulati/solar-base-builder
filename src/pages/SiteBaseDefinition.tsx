@@ -8,13 +8,16 @@ import { ThreeScene } from '@/components/ThreeScene';
 import { useShapeStore } from '@/stores/shapeStore';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sun, Plus } from 'lucide-react';
+import React from 'react';
+
+interface ObstacleToolbarProps { onClose?: () => void; }
 
 export const SiteBaseDefinition = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [show3D, setShow3D] = useState(false);
   const [showObstacleMode, setShowObstacleMode] = useState(false);
   const [buildingHeight, setBuildingHeight] = useState(3);
-  
+
   const { shapes, obstacles, setObstacleMode } = useShapeStore();
 
   const handleExportTo3D = (height: number) => {
@@ -39,8 +42,10 @@ export const SiteBaseDefinition = () => {
     setObstacleMode(false);
   };
 
+  // Single return statement with conditional rendering
   if (show3D) {
     if (showObstacleMode) {
+      // 3D + Obstacle Mode
       return (
         <div className="h-screen bg-gradient-subtle">
           {/* Obstacle Mode Header */}
@@ -56,7 +61,7 @@ export const SiteBaseDefinition = () => {
                   <h1 className="text-xl font-bold text-foreground">Add Obstacles - Top View</h1>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={handleExportFinal3D}
                 className="bg-primary hover:bg-primary/90"
               >
@@ -64,63 +69,60 @@ export const SiteBaseDefinition = () => {
               </Button>
             </div>
           </div>
-
           {/* Main Content - Obstacle Mode */}
           <div className="h-[calc(100vh-80px)] flex">
-            {/* Left Panel - Obstacle Tools (20%) */}
             <div className="w-1/5 p-4 border-r bg-background">
               <ObstacleToolbar />
             </div>
-
-            {/* Right Panel - Top View Canvas (80%) */}
             <div className="w-4/5 p-4">
               <TopViewCanvas shapes={shapes} />
             </div>
           </div>
         </div>
       );
-    }
-
-    return (
-      <div className="h-screen bg-gradient-subtle">
-        {/* 3D View Header */}
-        <div className="bg-card border-b shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={handleBackTo2D}>
-                <ArrowLeft size={16} className="mr-2" />
-                Back to 2D Editor
-              </Button>
-              <div className="flex items-center gap-2">
-                <Sun className="w-5 h-5 text-primary" />
-                <h1 className="text-xl font-bold text-foreground">3D Building Model</h1>
+    } else {
+      // 3D Only
+      return (
+        <div className="h-screen bg-gradient-subtle">
+          {/* 3D View Header */}
+          <div className="bg-card border-b shadow-sm p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="outline" onClick={handleBackTo2D}>
+                  <ArrowLeft size={16} className="mr-2" />
+                  Back to 2D Editor
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Sun className="w-5 h-5 text-primary" />
+                  <h1 className="text-xl font-bold text-foreground">3D Building Model</h1>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button 
-                onClick={handleAddObstacles}
-                variant="outline"
-                className="bg-primary/10 border-primary text-primary hover:bg-primary/20"
-              >
-                <Plus size={16} className="mr-2" />
-                Add Obstacles
-              </Button>
-              <div className="text-sm text-muted-foreground">
-                Height: {buildingHeight}m | Shapes: {shapes.length}
-                {obstacles.length > 0 && ` | Obstacles: ${obstacles.length}`}
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={handleAddObstacles}
+                  variant="outline"
+                  className="bg-primary/10 border-primary text-primary hover:bg-primary/20"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Add Obstacles
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  Height: {buildingHeight}m | Shapes: {shapes.length}
+                  {obstacles.length > 0 && ` | Obstacles: ${obstacles.length}`}
+                </div>
               </div>
             </div>
           </div>
+          {/* 3D Scene */}
+          <div className="h-[calc(100vh-80px)]">
+            <ThreeScene shapes={shapes} obstacles={obstacles} buildingHeight={buildingHeight} />
+          </div>
         </div>
-
-        {/* 3D Scene */}
-        <div className="h-[calc(100vh-80px)]">
-          <ThreeScene shapes={shapes} obstacles={obstacles} buildingHeight={buildingHeight} />
-        </div>
-      </div>
-    );
+      );
+    }
   }
 
+  // 2D Editor (Base or Obstacle Mode)
   return (
     <div className="h-screen bg-gradient-subtle">
       {/* Header */}
@@ -131,7 +133,7 @@ export const SiteBaseDefinition = () => {
             <h1 className="text-2xl font-bold text-foreground">Solar Site Designer</h1>
             <span className="text-sm text-muted-foreground ml-2">Site Base Definition</span>
           </div>
-          <Button 
+          <Button
             onClick={() => setShowExportModal(true)}
             className="bg-primary hover:bg-primary/90"
             disabled={shapes.length === 0}
@@ -140,20 +142,30 @@ export const SiteBaseDefinition = () => {
           </Button>
         </div>
       </div>
-
       {/* Main Content */}
       <div className="h-[calc(100vh-80px)] flex">
-        {/* Left Panel - Shape Tools (20%) */}
-        <div className="w-1/5 p-4 border-r bg-background">
-          <ShapeToolbar />
-        </div>
-
-        {/* Right Panel - Canvas (80%) */}
-        <div className="w-4/5 p-4">
-          <SimpleCanvas />
-        </div>
+        {showObstacleMode ? (
+          // Obstacle placement workflow
+          <>
+            <div className="w-1/5 p-4 border-r bg-background">
+              <ObstacleToolbar onClose={() => setShowObstacleMode(false)} />
+            </div>
+            <div className="w-4/5 p-4">
+              <TopViewCanvas shapes={shapes} />
+            </div>
+          </>
+        ) : (
+          // Base creation workflow
+          <>
+            <div className="w-1/5 p-4 border-r bg-background">
+              <ShapeToolbar />
+            </div>
+            <div className="w-4/5 p-4">
+              <SimpleCanvas setShowObstacleMode={setShowObstacleMode} />
+            </div>
+          </>
+        )}
       </div>
-
       {/* Export Modal */}
       <Export3DModal
         isOpen={showExportModal}
