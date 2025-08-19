@@ -16,6 +16,7 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
   const [groupDragOffset, setGroupDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
 
 //hello test
+//bye test
   const {
     shapes,
     selectedShapeId,
