@@ -112,8 +112,8 @@ export const DesignCanvas = () => {
     const commonProps = {
       id: shape.id,
       key: shape.id,
-      x: shape.position.x * PIXELS_PER_METER,
-      y: shape.position.y * PIXELS_PER_METER,
+      x: shape.position.x * PIXELS_PER_METER, // center-based
+      y: shape.position.y * PIXELS_PER_METER, // center-based
       rotation: shape.rotation,
       draggable: true,
       onClick: (e: any) => handleShapeClick(shape.id, e),
@@ -139,6 +139,8 @@ export const DesignCanvas = () => {
             {...commonProps}
             width={(shape.dimensions.length || 0) * PIXELS_PER_METER}
             height={(shape.dimensions.width || 0) * PIXELS_PER_METER}
+            offsetX={((shape.dimensions.length || 0) * PIXELS_PER_METER) / 2}
+            offsetY={((shape.dimensions.width || 0) * PIXELS_PER_METER) / 2}
           />
         );
       case 'square':
@@ -148,6 +150,8 @@ export const DesignCanvas = () => {
             {...commonProps}
             width={(shape.dimensions.length || 0) * PIXELS_PER_METER}
             height={(shape.dimensions.length || 0) * PIXELS_PER_METER}
+            offsetX={((shape.dimensions.length || 0) * PIXELS_PER_METER) / 2}
+            offsetY={((shape.dimensions.length || 0) * PIXELS_PER_METER) / 2}
           />
         );
       case 'circle':
@@ -155,6 +159,7 @@ export const DesignCanvas = () => {
           <Circle
             {...commonProps}
             radius={(shape.dimensions.radius || 0) * PIXELS_PER_METER}
+            // Konva Circle uses center at x,y by default
           />
         );
       default:
@@ -259,10 +264,10 @@ export const DesignCanvas = () => {
                 <Line
                   key={`${shape.id}-${connectedId}`}
                   points={[
-                    shape.position.x * PIXELS_PER_METER + (shape.dimensions.length || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    shape.position.y * PIXELS_PER_METER + (shape.dimensions.width || shape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    connectedShape.position.x * PIXELS_PER_METER + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
-                    connectedShape.position.y * PIXELS_PER_METER + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) * PIXELS_PER_METER / 2,
+                    shape.position.x * PIXELS_PER_METER,
+                    shape.position.y * PIXELS_PER_METER,
+                    connectedShape.position.x * PIXELS_PER_METER,
+                    connectedShape.position.y * PIXELS_PER_METER,
                   ]}
                   stroke="hsl(142 76% 55%)"
                   strokeWidth={3}

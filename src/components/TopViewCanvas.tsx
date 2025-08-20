@@ -1,4 +1,4 @@
-const PIXELS_PER_METER = 20;
+const PIXELS_PER_METER = 50;
 
 import { useRef, useEffect, useState } from 'react';
 import { useShapeStore, Shape, Obstacle } from '@/stores/shapeStore';
@@ -52,10 +52,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.save();
-    ctx.translate(canvasOffset.x, canvasOffset.y);
-    ctx.scale(canvasScale, canvasScale);
-
     drawGrid(ctx, canvas.width, canvas.height);
 
     shapes.forEach((shape) => {
@@ -66,31 +62,24 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       const isSelected = selectedObstacleId === obstacle.id;
       drawObstacle(ctx, obstacle, isSelected);
     });
-
-    ctx.restore();
   };
 
   const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const gridSize = 20;
+    const gridSize = PIXELS_PER_METER * canvasScale;
     ctx.strokeStyle = 'hsl(213, 30%, 90%)';
     ctx.lineWidth = 0.5;
 
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    // Draw vertical lines
-    for (let x = -width; x <= width; x += gridSize) {
+    for (let x = 0; x <= width; x += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(centerX + x - canvasOffset.x, -canvasOffset.y);
-      ctx.lineTo(centerX + x - canvasOffset.x, height - canvasOffset.y);
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
       ctx.stroke();
     }
 
-    // Draw horizontal lines
-    for (let y = -height; y <= height; y += gridSize) {
+    for (let y = 0; y <= height; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(-canvasOffset.x, centerY + y - canvasOffset.y);
-      ctx.lineTo(width - canvasOffset.x, centerY + y - canvasOffset.y);
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
       ctx.stroke();
     }
   };
@@ -98,13 +87,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawShape = (ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isHovered: boolean, type: 'base' | 'obstacle' = 'base') => {
     ctx.save();
     
-    // Calculate center position using canvas dimensions
-    const canvasWidth = ctx.canvas.width;
-    const canvasHeight = ctx.canvas.height;
-    
-    // Add canvasOffset to properly position relative to grid
-    const x = (canvasWidth / 2) + (shape.position.x * PIXELS_PER_METER * scale) - canvasOffset.x;
-    const y = (canvasHeight / 2) + (shape.position.y * PIXELS_PER_METER * scale) - canvasOffset.y;
+    const x = shape.position.x * PIXELS_PER_METER * canvasScale;
+    const y = shape.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((shape.rotation * Math.PI) / 180);
@@ -120,13 +104,13 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     ctx.lineWidth = isSelected ? 3 : 2;
 
     if (shape.type === 'circle') {
-      const radius = (shape.dimensions.radius || 1) * 20;
+      const radius = (shape.dimensions.radius || 1) * PIXELS_PER_METER * canvasScale;
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
     } else if (shape.type === 'triangle') {
-      const length = (shape.dimensions.length || 1) * 20;
+      const length = (shape.dimensions.length || 1) * PIXELS_PER_METER * canvasScale;
       const height = (length * Math.sqrt(3)) / 2;
       
       ctx.beginPath();
@@ -137,8 +121,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       ctx.fill();
       ctx.stroke();
     } else {
-      const length = (shape.dimensions.length || 1) * 20;
-      const width = shape.type === 'square' ? length : (shape.dimensions.width || 1) * 20;
+      const length = (shape.dimensions.length || 1) * PIXELS_PER_METER * canvasScale;
+      const width = shape.type === 'square' ? length : (shape.dimensions.width || 1) * PIXELS_PER_METER * canvasScale;
       
       ctx.beginPath();
       ctx.rect(-length / 2, -width / 2, length, width);
@@ -152,13 +136,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawObstacle = (ctx: CanvasRenderingContext2D, obstacle: Obstacle, isSelected: boolean) => {
     ctx.save();
     
-    // Calculate center position using canvas dimensions
-    const canvasWidth = ctx.canvas.width;
-    const canvasHeight = ctx.canvas.height;
-    
-    // Add canvasOffset to properly position relative to grid
-    const x = (canvasWidth / 2) + (obstacle.position.x * PIXELS_PER_METER) - canvasOffset.x;
-    const y = (canvasHeight / 2) + (obstacle.position.y * PIXELS_PER_METER) - canvasOffset.y;
+    const x = obstacle.position.x * PIXELS_PER_METER * canvasScale;
+    const y = obstacle.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((obstacle.rotation * Math.PI) / 180);
@@ -168,13 +147,13 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     ctx.lineWidth = isSelected ? 3 : 2;
 
     if (obstacle.type === 'circle') {
-      const radius = (obstacle.dimensions.radius || 1) * 20;
+      const radius = (obstacle.dimensions.radius || 1) * PIXELS_PER_METER * canvasScale;
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
     } else if (obstacle.type === 'triangle') {
-      const length = (obstacle.dimensions.length || 1) * 20;
+      const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER * canvasScale;
       const height = (length * Math.sqrt(3)) / 2;
       
       ctx.beginPath();
@@ -185,8 +164,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       ctx.fill();
       ctx.stroke();
     } else {
-      const length = (obstacle.dimensions.length || 1) * 20;
-      const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * 20;
+      const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER * canvasScale;
+      const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * PIXELS_PER_METER * canvasScale;
       
       ctx.beginPath();
       ctx.rect(-length / 2, -width / 2, length, width);
@@ -201,8 +180,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
-    const transformedX = ((x - canvasOffset.x) / canvasScale) - (canvas.width / 2);
-    const transformedY = ((y - canvasOffset.y) / canvasScale) - (canvas.height / 2);
+    const transformedX = x / canvasScale;
+    const transformedY = y / canvasScale;
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obstacle = obstacles[i];
@@ -212,13 +191,13 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       let isInside = false;
 
       if (obstacle.type === 'circle') {
-        const radius = (obstacle.dimensions.radius || 1) * 20;
+        const radius = (obstacle.dimensions.radius || 1) * PIXELS_PER_METER;
         const distance = Math.sqrt(
           Math.pow(transformedX - obstacleX, 2) + Math.pow(transformedY - obstacleY, 2)
         );
         isInside = distance <= radius;
       } else if (obstacle.type === 'triangle') {
-        const length = (obstacle.dimensions.length || 1) * 20;
+        const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER;
         const height = (length * Math.sqrt(3)) / 2;
         
         const dx = transformedX - obstacleX;
@@ -226,8 +205,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         
         isInside = Math.abs(dx) <= length / 2 && Math.abs(dy) <= height / 2;
       } else {
-        const length = (obstacle.dimensions.length || 1) * 20;
-        const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * 20;
+        const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER;
+        const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * PIXELS_PER_METER;
         
         const dx = transformedX - obstacleX;
         const dy = transformedY - obstacleY;
@@ -258,12 +237,12 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         setIsDragging(true);
         setDraggedObstacle(obstacleId);
         
-        const transformedX = (x - canvasOffset.x) / canvasScale;
-        const transformedY = (y - canvasOffset.y) / canvasScale;
+        const transformedX = x / canvasScale;
+        const transformedY = y / canvasScale;
         
         setDragOffset({
-          x: transformedX - obstacle.position.x * 20,
-          y: transformedY - obstacle.position.y * 20,
+          x: transformedX - obstacle.position.x * PIXELS_PER_METER,
+          y: transformedY - obstacle.position.y * PIXELS_PER_METER,
         });
       }
     } else {
@@ -281,11 +260,11 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const transformedX = (x - canvasOffset.x) / canvasScale;
-    const transformedY = (y - canvasOffset.y) / canvasScale;
+    const transformedX = x / canvasScale;
+    const transformedY = y / canvasScale;
 
-    const newX = (transformedX - dragOffset.x) / 20;
-    const newY = (transformedY - dragOffset.y) / 20;
+    const newX = (transformedX - dragOffset.x) / PIXELS_PER_METER;
+    const newY = (transformedY - dragOffset.y) / PIXELS_PER_METER;
 
     updateObstacle(draggedObstacle, {
       position: { x: newX, y: newY },

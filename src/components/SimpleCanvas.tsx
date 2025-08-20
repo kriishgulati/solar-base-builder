@@ -63,7 +63,7 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
 
     ctx.globalAlpha = 1;
 
-    // Draw connection lines
+    // Draw connection lines (center-to-center)
     shapes.forEach(shape => {
       shape.connectedTo.forEach(connectedId => {
         const connectedShape = shapes.find(s => s.id === connectedId);
@@ -72,11 +72,11 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
         ctx.strokeStyle = 'hsl(142 76% 55%)';
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
-        
-        const startX = (shape.position.x + (shape.dimensions.length || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const startY = (shape.position.y + (shape.dimensions.width || shape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const endX = (connectedShape.position.x + (connectedShape.dimensions.length || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        const endY = (connectedShape.position.y + (connectedShape.dimensions.width || connectedShape.dimensions.radius || 0) / 2) * PIXELS_PER_METER * canvasScale;
+
+        const startX = (shape.position.x) * PIXELS_PER_METER * canvasScale;
+        const startY = (shape.position.y) * PIXELS_PER_METER * canvasScale;
+        const endX = (connectedShape.position.x) * PIXELS_PER_METER * canvasScale;
+        const endY = (connectedShape.position.y) * PIXELS_PER_METER * canvasScale;
 
         ctx.beginPath();
         ctx.moveTo(startX, startY);
@@ -110,15 +110,10 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
       const radius = (shape.dimensions.radius || 0) * PIXELS_PER_METER * canvasScale;
       const rotation = (shape.rotation || 0) * Math.PI / 180;
 
-      // Calculate center
+      // Use center position directly
       let centerX, centerY;
-      if (shape.type === 'circle') {
-        centerX = (shape.position.x + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
-        centerY = (shape.position.y + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
-      } else {
-        centerX = (shape.position.x + (shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        centerY = (shape.position.y + (shape.dimensions.width || shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
-      }
+      centerX = (shape.position.x) * PIXELS_PER_METER * canvasScale;
+      centerY = (shape.position.y) * PIXELS_PER_METER * canvasScale;
 
       ctx.save();
       ctx.translate(centerX, centerY);
@@ -162,13 +157,13 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
 
       let centerX, centerY;
       if (shape.type === 'circle') {
-        centerX = (shape.position.x + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
-        centerY = (shape.position.y + shape.dimensions.radius) * PIXELS_PER_METER * canvasScale;
+        centerX = (shape.position.x) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y) * PIXELS_PER_METER * canvasScale;
         const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
         if (distance <= radius) return shape.id;
       } else {
-        centerX = (shape.position.x + (shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
-        centerY = (shape.position.y + (shape.dimensions.width || shape.dimensions.length || 0) / 2) * PIXELS_PER_METER * canvasScale;
+        centerX = (shape.position.x) * PIXELS_PER_METER * canvasScale;
+        centerY = (shape.position.y) * PIXELS_PER_METER * canvasScale;
 
         // Transform click point into shape's local coordinates
         const dx = x - centerX;
