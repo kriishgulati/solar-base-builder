@@ -29,6 +29,8 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
           triShape.lineTo(0, -triHeight / 2);
           geometry = new THREE.ExtrudeGeometry(triShape, { depth: height, bevelEnabled: false });
           geometry.rotateX(Math.PI / 2);
+          // Center geometry on Y so base sits on grid when positioned at height/2
+          geometry.translate(0, height / 2, 0);
         } else {
           const length = shape.dimensions.length || 1;
           const width = shape.type === 'square' ? length : (shape.dimensions.width || 1);
@@ -84,22 +86,23 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           );
         } else if (obstacle.type === 'triangle') {
           const length = obstacle.dimensions.length || 1;
-          const height = (length * Math.sqrt(3)) / 2;
+          const triHeight = (length * Math.sqrt(3)) / 2;
           
-          const shape = new THREE.Shape();
-          shape.moveTo(0, -length/2); // Top point
-          shape.lineTo(-height/2, length/2); // Bottom left
-          shape.lineTo(height/2, length/2); // Bottom right
-          shape.lineTo(0, -length/2); // Back to top
+          const triShape = new THREE.Shape();
+          triShape.moveTo(0, -triHeight / 2);
+          triShape.lineTo(-length / 2, triHeight / 2);
+          triShape.lineTo(length / 2, triHeight / 2);
+          triShape.lineTo(0, -triHeight / 2);
 
           const extrudeSettings = {
             depth: obstacle.height,
             bevelEnabled: false
           };
 
-          geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-          // Rotate to stand upright
+          geometry = new THREE.ExtrudeGeometry(triShape, extrudeSettings);
+          // Rotate to stand upright and center on Y
           geometry.rotateX(Math.PI / 2);
+          geometry.translate(0, obstacle.height / 2, 0);
         } else {
           // Rectangle or Square (default)
           geometry = new THREE.BoxGeometry(
