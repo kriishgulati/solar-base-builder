@@ -38,12 +38,13 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
         }
 
         const yPosition = height / 2; // base at y=0, extrude up
+        const yRotation = ((shape.rotation || 0) * (Math.PI / 180)) * (shape.type === 'triangle' ? -1 : 1);
 
         return (
           <group
             key={shape.id}
             position={[shape.position.x, yPosition, shape.position.y]}
-            rotation={[0, (shape.rotation || 0) * (Math.PI / 180), 0]}
+            rotation={[0, yRotation, 0]}
           >
             <mesh geometry={geometry} castShadow receiveShadow>
               <meshStandardMaterial 
@@ -120,7 +121,7 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           <group
             key={obstacle.id}
             position={[obstacle.position.x, yPosition, obstacle.position.y]}
-            rotation={[0, obstacle.rotation * (Math.PI / 180), 0]}
+            rotation={[0, (obstacle.type === 'triangle' ? -obstacle.rotation : obstacle.rotation) * (Math.PI / 180), 0]}
           >
             <mesh
               geometry={geometry}
