@@ -29,8 +29,9 @@ export const SiteBaseDefinition = () => {
   };
 
   const handleAddObstacles = () => {
-    setShowObstacleMode(true);
-    setObstacleMode(true);
+    setShow3D(false); // Exit 3D view
+    setShowObstacleMode(true); // Show obstacle mode
+    setObstacleMode(true); // Set store to obstacle mode
   };
 
   const handleExportFinal3D = () => {
