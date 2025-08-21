@@ -87,8 +87,9 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawShape = (ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isHovered: boolean, type: 'base' | 'obstacle' = 'base') => {
     ctx.save();
     
-    const x = shape.position.x * PIXELS_PER_METER * canvasScale;
-    const y = shape.position.y * PIXELS_PER_METER * canvasScale;
+    const canvas = canvasRef.current;
+    const x = (canvas ? canvas.width / 2 : 0) + shape.position.x * PIXELS_PER_METER * canvasScale;
+    const y = (canvas ? canvas.height / 2 : 0) + shape.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((shape.rotation * Math.PI) / 180);
@@ -136,8 +137,9 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawObstacle = (ctx: CanvasRenderingContext2D, obstacle: Obstacle, isSelected: boolean) => {
     ctx.save();
     
-    const x = obstacle.position.x * PIXELS_PER_METER * canvasScale;
-    const y = obstacle.position.y * PIXELS_PER_METER * canvasScale;
+    const canvas = canvasRef.current;
+    const x = (canvas ? canvas.width / 2 : 0) + obstacle.position.x * PIXELS_PER_METER * canvasScale;
+    const y = (canvas ? canvas.height / 2 : 0) + obstacle.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((obstacle.rotation * Math.PI) / 180);
@@ -180,8 +182,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
-    const transformedX = x / canvasScale;
-    const transformedY = y / canvasScale;
+    const transformedX = (x - (canvas.width / 2)) / canvasScale;
+    const transformedY = (y - (canvas.height / 2)) / canvasScale;
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obstacle = obstacles[i];
@@ -237,8 +239,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         setIsDragging(true);
         setDraggedObstacle(obstacleId);
         
-        const transformedX = x / canvasScale;
-        const transformedY = y / canvasScale;
+        const transformedX = (x - (canvas.width / 2)) / canvasScale;
+        const transformedY = (y - (canvas.height / 2)) / canvasScale;
         
         setDragOffset({
           x: transformedX - obstacle.position.x * PIXELS_PER_METER,
@@ -260,8 +262,8 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const transformedX = x / canvasScale;
-    const transformedY = y / canvasScale;
+    const transformedX = (x - (canvas.width / 2)) / canvasScale;
+    const transformedY = (y - (canvas.height / 2)) / canvasScale;
 
     const newX = (transformedX - dragOffset.x) / PIXELS_PER_METER;
     const newY = (transformedY - dragOffset.y) / PIXELS_PER_METER;

@@ -83,7 +83,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   }, [dimensions.length, dimensions.width, dimensions.radius, rotation, isDragging]);
 
   const handleAddShape = () => {
-    const basePosition = { x: 2, y: 2 }; // 2 meters from origin
+    const basePosition = { x: 0, y: 0 }; // center of grid/screen
     
     let shapeData;
     switch (activeShapeType) {

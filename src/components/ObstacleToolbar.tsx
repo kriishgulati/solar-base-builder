@@ -81,7 +81,7 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
     addObstacle({
       type: activeShapeType,
       dimensions,
-      position: { x: 0, y: 0 },
+      position: { x: 0, y: 0 }, // center
       rotation: rotation,
       height: height,                // obstacle's own height
       totalHeight: height + baseHeight  // combined height for 3D export
