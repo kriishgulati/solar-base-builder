@@ -56,13 +56,25 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   // Update shape in real time when dimensions or rotation change
   useEffect(() => {
     if (selectedShape && !isDragging) {
+      // Preserve square aspect ratio: keep width equal to length for squares.
+      let updatedDimensions: any = {};
+
+      if (selectedShape.type === 'square') {
+        updatedDimensions = { length: dimensions.length, width: dimensions.length };
+      } else if (selectedShape.type === 'circle') {
+        updatedDimensions = { radius: dimensions.radius };
+      } else if (selectedShape.type === 'triangle') {
+        updatedDimensions = { length: dimensions.length };
+      } else {
+        // rectangle
+        updatedDimensions = { length: dimensions.length, width: dimensions.width };
+      }
+
       updateShape(selectedShape.id, {
         ...selectedShape,
         dimensions: {
           ...selectedShape.dimensions,
-          length: dimensions.length,
-          width: dimensions.width,
-          radius: dimensions.radius,
+          ...updatedDimensions,
         },
         rotation,
       });

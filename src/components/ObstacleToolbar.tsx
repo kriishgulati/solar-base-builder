@@ -50,13 +50,24 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
   // Update obstacle in real time when dimensions or rotation change
   useEffect(() => {
     if (selectedObstacle) {
+      // Preserve square aspect ratio for obstacles of type 'square'
+      let updatedDimensions: any = {};
+
+      if (selectedObstacle.type === 'square') {
+        updatedDimensions = { length: dimensions.length, width: dimensions.length };
+      } else if (selectedObstacle.type === 'circle') {
+        updatedDimensions = { radius: dimensions.radius };
+      } else if (selectedObstacle.type === 'triangle') {
+        updatedDimensions = { length: dimensions.length };
+      } else {
+        updatedDimensions = { length: dimensions.length, width: dimensions.width };
+      }
+
       updateObstacle(selectedObstacle.id, {
         ...selectedObstacle,
         dimensions: {
           ...selectedObstacle.dimensions,
-          length: dimensions.length,
-          width: dimensions.width,
-          radius: dimensions.radius,
+          ...updatedDimensions,
         },
         rotation,
         height,
