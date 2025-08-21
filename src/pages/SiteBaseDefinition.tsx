@@ -14,9 +14,10 @@ export const SiteBaseDefinition = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [show3D, setShow3D] = useState(false);
   const [showObstacleMode, setShowObstacleMode] = useState(false);
-  const { shapes, obstacles, setObstacleMode, baseHeight } = useShapeStore(); // Get baseHeight from store
+  const { shapes, obstacles, setObstacleMode, baseHeight, setBaseHeight } = useShapeStore(); // Get baseHeight from store
 
   const handleExportTo3D = (height: number) => {
+    setBaseHeight(height);
     setShow3D(true);
     return Promise.resolve();
   };

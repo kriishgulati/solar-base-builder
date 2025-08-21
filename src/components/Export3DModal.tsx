@@ -41,7 +41,7 @@ export const Export3DModal = ({ isOpen, onClose, onExport }: Export3DModalProps)
         <div className="space-y-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="height" className="text-sm font-medium">
-              Building Height (meters)
+              Base Height (meters)
             </Label>
             <Input
               id="height"
@@ -54,7 +54,7 @@ export const Export3DModal = ({ isOpen, onClose, onExport }: Export3DModalProps)
               className="h-10"
             />
             <p className="text-xs text-muted-foreground">
-              This will be the height of the extruded 3D building model
+              This sets only the base height of the 3D model
             </p>
           </div>
 
