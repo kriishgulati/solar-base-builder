@@ -257,7 +257,7 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
     const newY = (y - dragOffset.y - (canvasRef.current!.height / 2)) / (PIXELS_PER_METER * canvasScale);
     
     updateShape(dragShape, {
-      position: { x: Math.max(0, newX), y: Math.max(0, newY) }
+      position: { x: newX, y: newY }
     });
   };
 
