@@ -15,6 +15,9 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedObstacle, setDraggedObstacle] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [guidelines, setGuidelines] = useState<
+    { x1: number; y1: number; x2: number; y2: number; label: string }[]
+  >([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,6 +65,40 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       const isSelected = selectedObstacleId === obstacle.id;
       drawObstacle(ctx, obstacle, isSelected);
     });
+
+    // Draw dynamic ruler guidelines while dragging
+    if (isDragging && guidelines.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120, 120, 120, 0.9)';
+      ctx.fillStyle = 'rgba(40, 40, 40, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      guidelines.forEach(g => {
+        ctx.beginPath();
+        ctx.moveTo(g.x1, g.y1);
+        ctx.lineTo(g.x2, g.y2);
+        ctx.stroke();
+
+        const midX = (g.x1 + g.x2) / 2;
+        const midY = (g.y1 + g.y2) / 2;
+        // Label background
+        const padding = 4;
+        const textWidth = ctx.measureText(g.label).width;
+        const boxW = textWidth + padding * 2;
+        const boxH = 16;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(midX - boxW / 2, midY - boxH / 2, boxW, boxH);
+        ctx.strokeStyle = 'rgba(120,120,120,0.9)';
+        ctx.strokeRect(midX - boxW / 2, midY - boxH / 2, boxW, boxH);
+        ctx.fillStyle = 'rgba(40,40,40,0.95)';
+        ctx.fillText(g.label, midX, midY);
+      });
+
+      ctx.restore();
+    }
   };
 
   const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
@@ -231,6 +268,92 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     return null;
   };
 
+  const getObstacleBBoxMeters = (o: Obstacle) => {
+    if (o.type === 'circle') {
+      const d = (o.dimensions.radius || 1) * 2;
+      return { length: d, width: d };
+    }
+    if (o.type === 'triangle') {
+      const length = (o.dimensions.length || 1);
+      const triHeight = (length * Math.sqrt(3)) / 2;
+      return { length, width: triHeight };
+    }
+    if (o.type === 'square') {
+      const l = (o.dimensions.length || 1);
+      return { length: l, width: l };
+    }
+    if (o.type === 'solarPanel') {
+      return { length: 2, width: 1 };
+    }
+    return { length: (o.dimensions.length || 1), width: (o.dimensions.width || 1) };
+  };
+
+  const computeGuidelines = (moving: Obstacle) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return [] as { x1: number; y1: number; x2: number; y2: number; label: string }[];
+
+    const others = obstacles.filter(o => o.id !== moving.id);
+    // Sort by center distance (meters)
+    const sorted = others
+      .map(o => ({
+        o,
+        dist: Math.hypot(o.position.x - moving.position.x, o.position.y - moving.position.y)
+      }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 3)
+      .map(e => e.o);
+
+    const centerX = (canvas.width / 2);
+    const centerY = (canvas.height / 2);
+    const toPixels = (m: number) => m * PIXELS_PER_METER * canvasScale;
+
+    const movingBBox = getObstacleBBoxMeters(moving);
+    const movingCenterPx = {
+      x: centerX + moving.position.x * PIXELS_PER_METER * canvasScale,
+      y: centerY + moving.position.y * PIXELS_PER_METER * canvasScale,
+    };
+
+    const lines: { x1: number; y1: number; x2: number; y2: number; label: string }[] = [];
+
+    sorted.forEach(target => {
+      const targetBBox = getObstacleBBoxMeters(target);
+      const targetCenterPx = {
+        x: centerX + target.position.x * PIXELS_PER_METER * canvasScale,
+        y: centerY + target.position.y * PIXELS_PER_METER * canvasScale,
+      };
+
+      // Axis-aligned edge-to-edge distances (meters)
+      const dxCenterM = Math.abs(moving.position.x - target.position.x);
+      const dyCenterM = Math.abs(moving.position.y - target.position.y);
+      const dxEdgeM = Math.max(0, dxCenterM - (movingBBox.length / 2 + targetBBox.length / 2));
+      const dyEdgeM = Math.max(0, dyCenterM - (movingBBox.width / 2 + targetBBox.width / 2));
+
+      // Horizontal guideline
+      const horizDir = Math.sign(targetCenterPx.x - movingCenterPx.x) || 1;
+      const movingRightPx = movingCenterPx.x + toPixels(movingBBox.length / 2) * (horizDir > 0 ? 1 : -1);
+      const targetLeftPx = targetCenterPx.x - toPixels(targetBBox.length / 2) * (horizDir > 0 ? 1 : -1);
+      const x1 = movingRightPx;
+      const x2 = targetLeftPx;
+      const yH = movingCenterPx.y;
+      if (x2 !== x1) {
+        lines.push({ x1, y1: yH, x2, y2: yH, label: `${dxEdgeM.toFixed(2)} m` });
+      }
+
+      // Vertical guideline
+      const vertDir = Math.sign(targetCenterPx.y - movingCenterPx.y) || 1;
+      const movingTopPx = movingCenterPx.y + toPixels(movingBBox.width / 2) * (vertDir > 0 ? 1 : -1);
+      const targetBottomPx = targetCenterPx.y - toPixels(targetBBox.width / 2) * (vertDir > 0 ? 1 : -1);
+      const y1 = movingTopPx;
+      const y2 = targetBottomPx;
+      const xV = movingCenterPx.x;
+      if (y2 !== y1) {
+        lines.push({ x1: xV, y1, x2: xV, y2, label: `${dyEdgeM.toFixed(2)} m` });
+      }
+    });
+
+    return lines;
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -274,18 +397,30 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const transformedX = (x - (canvas.width / 2)) / canvasScale;
     const transformedY = (y - (canvas.height / 2)) / canvasScale;
 
-    const newX = (transformedX - dragOffset.x) / PIXELS_PER_METER;
-    const newY = (transformedY - dragOffset.y) / PIXELS_PER_METER;
+    let newX = (transformedX - dragOffset.x) / PIXELS_PER_METER;
+    let newY = (transformedY - dragOffset.y) / PIXELS_PER_METER;
+
+    // Snap-to-grid unless Ctrl is held
+    if (!e.ctrlKey) {
+      newX = Math.round(newX);
+      newY = Math.round(newY);
+    }
 
     updateObstacle(draggedObstacle, {
       position: { x: newX, y: newY },
     });
+
+    const moving = obstacles.find(o => o.id === draggedObstacle);
+    if (moving) {
+      setGuidelines(computeGuidelines({ ...moving, position: { x: newX, y: newY } } as Obstacle));
+    }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
     setDraggedObstacle(null);
     setDragOffset({ x: 0, y: 0 });
+    setGuidelines([]);
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -302,7 +437,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   useEffect(() => {
     drawShapes();
-  }, [shapes, obstacles, selectedObstacleId, canvasScale, canvasOffset, scale, centerCoords]);
+  }, [shapes, obstacles, selectedObstacleId, canvasScale, canvasOffset, scale, centerCoords, isDragging, guidelines]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -317,6 +452,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
           <div>Base shapes: <span className="text-green-600">Green</span></div>
           <div>Obstacles: <span className="text-red-600">Red</span></div>
           <div>Click and drag to move obstacles</div>
+          <div>Hold Ctrl to disable snapping</div>
         </div>
       </div>
       
