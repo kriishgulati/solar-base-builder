@@ -111,17 +111,63 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
     return overlapX && overlapZ;
   };
 
+  // Helper: get footprint for shapes (same axis-aligned approximation)
+  const getShapeFootprint = (s: Shape) => {
+    if (s.type === 'circle') {
+      const d = (s.dimensions.radius || 1) * 2;
+      return { length: d, width: d };
+    }
+    if (s.type === 'triangle') {
+      const length = s.dimensions.length || 1;
+      const triHeight = (length * Math.sqrt(3)) / 2;
+      return { length, width: triHeight };
+    }
+    if (s.type === 'square') {
+      const l = s.dimensions.length || 1;
+      return { length: l, width: l };
+    }
+    return { length: s.dimensions.length || 1, width: s.dimensions.width || 1 };
+  };
+
+  // Check if obstacle overlaps any shape (axis-aligned bounding box test)
+  const overlapsAnyShape = (o: Obstacle) => {
+    for (const s of shapes) {
+      const of = getFootprint(o);
+      const sf = getShapeFootprint(s);
+
+      const ox1 = o.position.x - of.length / 2;
+      const ox2 = o.position.x + of.length / 2;
+      const oz1 = o.position.y - of.width / 2;
+      const oz2 = o.position.y + of.width / 2;
+
+      const sx1 = s.position.x - sf.length / 2;
+      const sx2 = s.position.x + sf.length / 2;
+      const sz1 = s.position.y - sf.width / 2;
+      const sz2 = s.position.y + sf.width / 2;
+
+      const overlapX = ox1 < sx2 && ox2 > sx1;
+      const overlapZ = oz1 < sz2 && oz2 > sz1;
+
+      if (overlapX && overlapZ) return true;
+    }
+    return false;
+  };
+
   // Compute stacking: bottomZ (meters) per obstacle using prior placements
   const placements: { id: string; bottomZ: number }[] = [];
   obstacles.forEach((o, idx) => {
-    // Non-solarPanel obstacles never stack; they always sit on base
+    // Determine whether this obstacle overlaps any building shape.
+    // If it does, its bottom sits on the building top (baseHeight), otherwise on ground (0).
+    const sitsOnBase = overlapsAnyShape(o);
+
+    // Non-solarPanel obstacles never stack with obstacles; just sit on base or ground
     if (o.type !== 'solarPanel') {
-      placements.push({ id: o.id, bottomZ: baseHeight });
+      placements.push({ id: o.id, bottomZ: sitsOnBase ? baseHeight : 0 });
       return;
     }
 
-    // Solar panels can stack atop any overlapping obstacle
-    let bottomZ = baseHeight;
+    // Solar panels can stack atop any overlapping obstacle. Start at baseHeight or ground depending on footprint.
+    let bottomZ = sitsOnBase ? baseHeight : 0;
     for (let i = 0; i < idx; i++) {
       const prev = obstacles[i];
       if (aabbOverlap(o, prev)) {
