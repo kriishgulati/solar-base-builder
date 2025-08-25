@@ -72,6 +72,68 @@ interface Obstacles3DProps {
 
 // Update the component to receive shapes prop
 const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
+  // Helper: get axis-aligned footprint (meters) for overlap tests
+  const getFootprint = (o: Obstacle) => {
+    if (o.type === 'circle') {
+      const d = (o.dimensions.radius || 1) * 2;
+      return { length: d, width: d };
+    }
+    if (o.type === 'triangle') {
+      const length = o.dimensions.length || 1;
+      const triHeight = (length * Math.sqrt(3)) / 2;
+      return { length, width: triHeight };
+    }
+    if (o.type === 'square') {
+      const l = o.dimensions.length || 1;
+      return { length: l, width: l };
+    }
+    if (o.type === 'solarPanel') {
+      return { length: 2, width: 1 };
+    }
+    return { length: o.dimensions.length || 1, width: o.dimensions.width || 1 };
+  };
+
+  const aabbOverlap = (a: Obstacle, b: Obstacle) => {
+    const af = getFootprint(a);
+    const bf = getFootprint(b);
+    const ax1 = a.position.x - af.length / 2;
+    const ax2 = a.position.x + af.length / 2;
+    const az1 = a.position.y - af.width / 2;
+    const az2 = a.position.y + af.width / 2;
+
+    const bx1 = b.position.x - bf.length / 2;
+    const bx2 = b.position.x + bf.length / 2;
+    const bz1 = b.position.y - bf.width / 2;
+    const bz2 = b.position.y + bf.width / 2;
+
+    const overlapX = ax1 < bx2 && ax2 > bx1;
+    const overlapZ = az1 < bz2 && az2 > bz1;
+    return overlapX && overlapZ;
+  };
+
+  // Compute stacking: bottomZ (meters) per obstacle using prior placements
+  const placements: { id: string; bottomZ: number }[] = [];
+  obstacles.forEach((o, idx) => {
+    // Non-solarPanel obstacles never stack; they always sit on base
+    if (o.type !== 'solarPanel') {
+      placements.push({ id: o.id, bottomZ: baseHeight });
+      return;
+    }
+
+    // Solar panels can stack atop any overlapping obstacle
+    let bottomZ = baseHeight;
+    for (let i = 0; i < idx; i++) {
+      const prev = obstacles[i];
+      if (aabbOverlap(o, prev)) {
+        const prevPlacement = placements.find(p => p.id === prev.id);
+        const prevBottom = prevPlacement ? prevPlacement.bottomZ : baseHeight;
+        const prevTop = prevBottom + prev.height;
+        bottomZ = Math.max(bottomZ, prevTop);
+      }
+    }
+    placements.push({ id: o.id, bottomZ });
+  });
+
   return (
     <>
       {obstacles.map((obstacle) => {
@@ -141,7 +203,7 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           geom.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
           geom.setIndex(indices);
           geom.computeVertexNormals();
-          // Center geometry on Y so bottom sits at base when positioned at baseHeight + height/2
+          // Center geometry on Y so bottom sits at bottomZ when positioned at bottomZ + height/2
           geom.translate(0, -height / 2, 0);
 
           geometry = geom as THREE.BufferGeometry;
@@ -154,8 +216,10 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           );
         }
 
-        // Calculate the correct Y position: baseHeight + half of obstacle height
-        const yPosition = baseHeight + (obstacle.height / 2);
+        // Calculate stacking-aware Y position
+        const placement = placements.find(p => p.id === obstacle.id);
+        const bottomZ = placement ? placement.bottomZ : baseHeight;
+        const yPosition = bottomZ + (obstacle.height / 2);
 
         // Create a group to handle rotations correctly
         return (

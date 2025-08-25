@@ -129,9 +129,7 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
               size="sm"
               onClick={() => {
                 setActiveShapeType(shape.key as any);
-                if (shape.key === 'solarPanel') {
-                  setDimensions({ length: 2, width: 1, radius: 1 });
-                }
+                // Do not modify local dimensions of an already selected obstacle when switching types
               }}
               className="capitalize"
             >
