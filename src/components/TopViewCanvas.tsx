@@ -144,8 +144,13 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     ctx.translate(x, y);
     ctx.rotate((obstacle.rotation * Math.PI) / 180);
 
-    ctx.fillStyle = isSelected ? 'hsl(0, 84%, 70%)' : 'hsl(0, 84%, 75%)';
-    ctx.strokeStyle = 'hsl(0, 84%, 50%)';
+    if (obstacle.type === 'solarPanel') {
+      ctx.fillStyle = isSelected ? '#244a86' : '#2c5596';
+      ctx.strokeStyle = '#1d3a6b';
+    } else {
+      ctx.fillStyle = isSelected ? 'hsl(0, 84%, 70%)' : 'hsl(0, 84%, 75%)';
+      ctx.strokeStyle = 'hsl(0, 84%, 50%)';
+    }
     ctx.lineWidth = isSelected ? 3 : 2;
 
     if (obstacle.type === 'circle') {
@@ -166,8 +171,10 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       ctx.fill();
       ctx.stroke();
     } else {
-      const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER * canvasScale;
-      const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * PIXELS_PER_METER * canvasScale;
+      const baseLengthMeters = obstacle.type === 'solarPanel' ? 2 : (obstacle.dimensions.length || 1);
+      const baseWidthMeters = obstacle.type === 'solarPanel' ? 1 : (obstacle.type === 'square' ? (obstacle.dimensions.length || 1) : (obstacle.dimensions.width || 1));
+      const length = baseLengthMeters * PIXELS_PER_METER * canvasScale;
+      const width = baseWidthMeters * PIXELS_PER_METER * canvasScale;
       
       ctx.beginPath();
       ctx.rect(-length / 2, -width / 2, length, width);
@@ -207,12 +214,14 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         
         isInside = Math.abs(dx) <= length / 2 && Math.abs(dy) <= height / 2;
       } else {
-        const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER;
-        const width = obstacle.type === 'square' ? length : (obstacle.dimensions.width || 1) * PIXELS_PER_METER;
-        
+        const baseLengthMeters = obstacle.type === 'solarPanel' ? 2 : (obstacle.dimensions.length || 1);
+        const baseWidthMeters = obstacle.type === 'solarPanel' ? 1 : (obstacle.type === 'square' ? (obstacle.dimensions.length || 1) : (obstacle.dimensions.width || 1));
+        const length = baseLengthMeters * PIXELS_PER_METER;
+        const width = baseWidthMeters * PIXELS_PER_METER;
+
+        // Approximate hit test ignoring rotation (existing behavior)
         const dx = transformedX - obstacleX;
         const dy = transformedY - obstacleY;
-        
         isInside = Math.abs(dx) <= length / 2 && Math.abs(dy) <= width / 2;
       }
 

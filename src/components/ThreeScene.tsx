@@ -104,6 +104,47 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           // Rotate to stand upright and center on Y
           geometry.rotateX(Math.PI / 2);
           geometry.translate(0, obstacle.height / 2, 0);
+        } else if (obstacle.type === 'solarPanel') {
+          const length = 2;
+          const width = 1;
+          const height = obstacle.height;
+
+          // Build a wedge geometry: rectangle base (1x2), sloped top along +X to height
+          const vertices = [
+            new THREE.Vector3(-length / 2, 0, -width / 2),
+            new THREE.Vector3(length / 2, 0, -width / 2),
+            new THREE.Vector3(length / 2, 0, width / 2),
+            new THREE.Vector3(-length / 2, 0, width / 2),
+            new THREE.Vector3(-length / 2, 0, -width / 2),
+            new THREE.Vector3(length / 2, height, -width / 2),
+            new THREE.Vector3(length / 2, height, width / 2),
+            new THREE.Vector3(-length / 2, 0, width / 2),
+          ];
+
+          const indices = [
+            // bottom
+            0, 1, 2, 0, 2, 3,
+            // -Z side
+            0, 1, 5, 0, 5, 4,
+            // +Z side
+            3, 2, 6, 3, 6, 7,
+            // -X side
+            0, 4, 7, 0, 7, 3,
+            // +X side (sloped)
+            1, 2, 6, 1, 6, 5,
+            // top sloped quad
+            4, 5, 6, 4, 6, 7,
+          ];
+
+          const geom = new THREE.BufferGeometry();
+          const positionArray = new Float32Array(vertices.flatMap(v => [v.x, v.y, v.z]));
+          geom.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
+          geom.setIndex(indices);
+          geom.computeVertexNormals();
+          // Center geometry on Y so bottom sits at base when positioned at baseHeight + height/2
+          geom.translate(0, -height / 2, 0);
+
+          geometry = geom as THREE.BufferGeometry;
         } else {
           // Rectangle or Square (default)
           geometry = new THREE.BoxGeometry(
@@ -128,8 +169,8 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
               castShadow
               receiveShadow
             >
-              <meshStandardMaterial
-                color="hsl(0, 84%, 60%)"
+              <meshStandardMaterial 
+                color={obstacle.type === 'solarPanel' ? '#2c5596' : 'hsl(0, 84%, 60%)'}
                 transparent
                 opacity={0.9}
                 side={THREE.DoubleSide}

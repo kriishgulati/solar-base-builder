@@ -37,8 +37,8 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
   useEffect(() => {
     if (selectedObstacle) {
       setDimensions({
-        length: selectedObstacle.dimensions.length ?? 1,
-        width: selectedObstacle.dimensions.width ?? 1,
+        length: selectedObstacle.type === 'solarPanel' ? 2 : (selectedObstacle.dimensions.length ?? 1),
+        width: selectedObstacle.type === 'solarPanel' ? 1 : (selectedObstacle.dimensions.width ?? 1),
         radius: selectedObstacle.dimensions.radius ?? 1,
       });
       setRotation(selectedObstacle.rotation ?? 0);
@@ -53,7 +53,9 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
       // Preserve square aspect ratio for obstacles of type 'square'
       let updatedDimensions: any = {};
 
-      if (selectedObstacle.type === 'square') {
+      if (selectedObstacle.type === 'solarPanel') {
+        updatedDimensions = { length: 2, width: 1 };
+      } else if (selectedObstacle.type === 'square') {
         updatedDimensions = { length: dimensions.length, width: dimensions.length };
       } else if (selectedObstacle.type === 'circle') {
         updatedDimensions = { radius: dimensions.radius };
@@ -78,14 +80,25 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
 
   // Use baseHeight when creating obstacles
   const handleAddObstacle = () => {
-    addObstacle({
-      type: activeShapeType,
-      dimensions,
-      position: { x: 0, y: 0 }, // center
-      rotation: rotation,
-      height: height,                // obstacle's own height
-      totalHeight: height + baseHeight  // combined height for 3D export
-    });
+    if (activeShapeType === 'solarPanel') {
+      addObstacle({
+        type: 'solarPanel',
+        dimensions: { length: 2, width: 1 },
+        position: { x: 0, y: 0 },
+        rotation: rotation,
+        height: height,
+        totalHeight: height + baseHeight
+      });
+    } else {
+      addObstacle({
+        type: activeShapeType,
+        dimensions,
+        position: { x: 0, y: 0 }, // center
+        rotation: rotation,
+        height: height,                // obstacle's own height
+        totalHeight: height + baseHeight  // combined height for 3D export
+      });
+    }
   };
 
   const resetRotation = () => setRotation(0);
@@ -103,15 +116,26 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
       <div className="space-y-3">
         <Label className="text-sm font-medium text-foreground">Shape Type</Label>
         <div className="grid grid-cols-2 gap-2">
-          {(['rectangle', 'square', 'circle', 'triangle'] as const).map((shape) => (
+          {[
+            { key: 'rectangle', label: 'Rectangle' },
+            { key: 'square', label: 'Square' },
+            { key: 'circle', label: 'Circle' },
+            { key: 'triangle', label: 'Triangle' },
+            { key: 'solarPanel', label: 'Solar Panel' },
+          ].map((shape) => (
             <Button
-              key={shape}
-              variant={activeShapeType === shape ? 'default' : 'outline'}
+              key={shape.key}
+              variant={activeShapeType === (shape.key as any) ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setActiveShapeType(shape)}
+              onClick={() => {
+                setActiveShapeType(shape.key as any);
+                if (shape.key === 'solarPanel') {
+                  setDimensions({ length: 2, width: 1, radius: 1 });
+                }
+              }}
               className="capitalize"
             >
-              {shape}
+              {shape.label}
             </Button>
           ))}
         </div>
@@ -163,6 +187,12 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
                 onChange={(e) => setDimensions(prev => ({ ...prev, width: parseFloat(e.target.value) || 1 }))}
                 className="h-8"
               />
+            </div>
+          )}
+
+          {activeShapeType === 'solarPanel' && (
+            <div className="text-xs text-muted-foreground">
+              Fixed base: 1.0m × 2.0m
             </div>
           )}
         </div>

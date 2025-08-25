@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export interface Shape {
   id: string;
-  type: 'rectangle' | 'square' | 'circle' | 'triangle';
+  type: 'rectangle' | 'square' | 'circle' | 'triangle' | 'solarPanel';
   dimensions: {
     length?: number;
     width?: number;
@@ -32,7 +32,7 @@ interface ShapeStore {
   obstacles: Obstacle[];
   selectedShapeId: string | null;
   selectedObstacleId: string | null;
-  activeShapeType: 'rectangle' | 'square' | 'circle' | 'triangle';
+  activeShapeType: 'rectangle' | 'square' | 'circle' | 'triangle' | 'solarPanel';
   canvasScale: number;
   canvasOffset: { x: number; y: number };
   shapeMergeEnabled: boolean;
