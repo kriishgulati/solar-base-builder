@@ -56,6 +56,8 @@ interface ShapeStore {
   mergeShapes: (shapeIds: string[]) => void;
   clearCanvas: () => void;
   clearObstacles: () => void;
+  copyShape: (id: string) => void;
+  copyObstacle: (id: string) => void;
   setBaseHeight: (height: number) => void;
 }
 
@@ -187,6 +189,33 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
       obstacles: [],
       selectedObstacleId: null,
     });
+  },
+
+  // Copy actions: duplicate shape or obstacle with new id and slight offset
+  copyShape: (id: string) => {
+    const state = get();
+    const shape = state.shapes.find(s => s.id === id);
+    if (!shape) return;
+    const newShape: Shape = {
+      ...shape,
+      id: `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      position: { x: shape.position.x + 1, y: shape.position.y + 1 }, // offset to avoid exact overlap
+      connectedTo: [],
+      merged: false,
+    };
+    set({ shapes: [...state.shapes, newShape], selectedShapeId: newShape.id });
+  },
+
+  copyObstacle: (id: string) => {
+    const state = get();
+    const obs = state.obstacles.find(o => o.id === id);
+    if (!obs) return;
+    const newObs: Obstacle = {
+      ...obs,
+      id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      position: { x: obs.position.x + 1, y: obs.position.y + 1 },
+    };
+    set({ obstacles: [...state.obstacles, newObs], selectedObstacleId: newObs.id });
   },
 
   setBaseHeight: (height: number) => set({ baseHeight: height }),

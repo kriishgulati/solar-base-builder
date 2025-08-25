@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RotateCcw, Trash2, Plus } from 'lucide-react';
+import { RotateCcw, Trash2, Plus, Copy } from 'lucide-react';
 
 interface ObstacleToolbarProps {
   onClose: () => void;
@@ -21,6 +21,7 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
     selectedObstacleId,
     updateObstacle,
     selectObstacle,
+  copyObstacle,
   } = useShapeStore();
 
   const selectedObstacle = obstacles.find(o => o.id === selectedObstacleId);
@@ -256,6 +257,18 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
           <Trash2 size={16} className="mr-2" />
           Clear All Obstacles
         </Button>
+
+        {selectedObstacle && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => copyObstacle(selectedObstacle.id)} className="flex-1">
+              <Copy size={16} className="mr-2" />
+              Copy Obstacle
+            </Button>
+            <Button variant="ghost" onClick={() => selectObstacle(null)}>
+              <Trash2 size={16} />
+            </Button>
+          </div>
+        )}
       </div>
 
       {obstacles.length > 0 && (

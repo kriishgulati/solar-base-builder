@@ -15,6 +15,7 @@ import {
   Trash2, 
   Plus
 } from 'lucide-react';
+import { Copy } from 'lucide-react';
 
 export const ShapeToolbar = ({ isDragging = false }) => {
   const {
@@ -28,6 +29,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
     shapes,
     updateShape,
     selectShape,
+  copyShape,
   } = useShapeStore();
 
   const [dimensions, setDimensions] = useState({
@@ -253,6 +255,18 @@ export const ShapeToolbar = ({ isDragging = false }) => {
             <Plus size={16} className="mr-2" />
             Add Shape
           </Button>
+
+          {selectedShape && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => copyShape(selectedShape.id)} className="flex-1" size="sm">
+                <Copy size={16} className="mr-2" />
+                Copy Shape
+              </Button>
+              <Button variant="ghost" onClick={() => selectShape(null)} size="sm">
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          )}
 
           {/* Shape Merge Toggle */}
           <div className="flex items-center justify-between py-2">
