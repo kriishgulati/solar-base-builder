@@ -50,9 +50,7 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
           >
             <mesh geometry={geometry} castShadow receiveShadow>
               <meshStandardMaterial 
-                color="hsl(142, 71%, 55%)" 
-                transparent 
-                opacity={0.9}
+                color="hsl(142, 71%, 55%)"
                 side={THREE.DoubleSide}
                 roughness={0.3}
                 metalness={0.1}
@@ -264,8 +262,6 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
             <mesh geometry={geometry} castShadow receiveShadow>
               <meshStandardMaterial 
                 color={obstacle.type === 'solarPanel' ? '#2c5596' : 'hsl(0, 84%, 60%)'}
-                transparent
-                opacity={0.9}
                 side={THREE.DoubleSide}
                 roughness={0.4}
                 metalness={0.1}
