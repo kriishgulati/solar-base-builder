@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useShapeStore } from '@/stores/shapeStore';
+import type { Shape } from '@/stores/shapeStore';
 import { ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react';
 import { TopViewCanvas } from '@/components/TopViewCanvas';
 import { ObstacleToolbar } from '@/components/ObstacleToolbar';
@@ -16,6 +17,7 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [marquee, setMarquee] = useState<{start: {x: number, y: number}, end: {x: number, y: number}} | null>(null);
   const [groupDragOffset, setGroupDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
+  const [guidelines, setGuidelines] = useState<{ x1: number; y1: number; x2: number; y2: number; label: string }[]>([]);
 
 //hello test
 //bye test
@@ -26,10 +28,13 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
     updateShape,
     deleteShape,
     canvasScale,
-    setCanvasScale,
+  setCanvasScale,
     canvasOffset,
-    setCanvasOffset,
+  setCanvasOffset,
     shapeMergeEnabled,
+  zoomIn,
+  zoomOut,
+  recenterCanvas,
   } = useShapeStore();
 
   const drawShapes = () => {
@@ -47,8 +52,8 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
     ctx.lineWidth = 1;
     ctx.globalAlpha = 0.2;
     const gridSize = PIXELS_PER_METER * canvasScale;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+  const centerX = canvas.width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = canvas.height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
     // vertical lines to the right
     for (let x = centerX; x <= canvas.width; x += gridSize) {
       ctx.beginPath();
@@ -162,6 +167,183 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
 
       ctx.restore();
     });
+
+    // Draw dynamic ruler guidelines while dragging
+    if (isDragging && guidelines.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120, 120, 120, 0.9)';
+      ctx.fillStyle = 'rgba(40, 40, 40, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      guidelines.forEach(g => {
+        ctx.beginPath();
+        ctx.moveTo(g.x1, g.y1);
+        ctx.lineTo(g.x2, g.y2);
+        ctx.stroke();
+
+        const midX = (g.x1 + g.x2) / 2;
+        const midY = (g.y1 + g.y2) / 2;
+        const padding = 4;
+        const textWidth = ctx.measureText(g.label).width;
+        const boxW = textWidth + padding * 2;
+        const boxH = 16;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(midX - boxW / 2, midY - boxH / 2, boxW, boxH);
+        ctx.strokeStyle = 'rgba(120,120,120,0.9)';
+        ctx.strokeRect(midX - boxW / 2, midY - boxH / 2, boxW, boxH);
+        ctx.fillStyle = 'rgba(40,40,40,0.95)';
+        ctx.fillText(g.label, midX, midY);
+      });
+
+      ctx.restore();
+    }
+  };
+
+  const getShapeBBoxMeters = (s: Shape) => {
+    if (s.type === 'circle') {
+      const d = (s.dimensions.radius || 0) * 2;
+      return { length: d, width: d };
+    }
+    if (s.type === 'triangle') {
+      const l = s.dimensions.length || 0;
+      const h = (l * Math.sqrt(3)) / 2;
+      return { length: l, width: h };
+    }
+    if (s.type === 'square') {
+      const l = s.dimensions.length || 0;
+      return { length: l, width: l };
+    }
+    return { length: s.dimensions.length || 0, width: s.dimensions.width || 0 };
+  };
+
+  const computeGuidelinesForShape = (moving: Shape) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return [] as { x1: number; y1: number; x2: number; y2: number; label: string }[];
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const toPixels = (m: number) => m * PIXELS_PER_METER * canvasScale;
+
+    const movingBBox = getShapeBBoxMeters(moving);
+    const movingCenterPx = {
+      x: centerX + moving.position.x * PIXELS_PER_METER * canvasScale,
+      y: centerY + moving.position.y * PIXELS_PER_METER * canvasScale,
+    };
+
+    const lines: { x1: number; y1: number; x2: number; y2: number; label: string }[] = [];
+
+    // Nearest neighbor guideline (single)
+    const others = shapes.filter(s => s.id !== moving.id);
+    if (others.length > 0) {
+      type Neighbor = { target: typeof shapes[number]; dxEdgeM: number; dyEdgeM: number };
+      const neighbors: Neighbor[] = others.map(target => {
+        const targetBBox = getShapeBBoxMeters(target);
+        const dxCenterM = Math.abs(moving.position.x - target.position.x);
+        const dyCenterM = Math.abs(moving.position.y - target.position.y);
+        const dxEdgeM = Math.max(0, dxCenterM - (movingBBox.length / 2 + targetBBox.length / 2));
+        const dyEdgeM = Math.max(0, dyCenterM - (movingBBox.width / 2 + targetBBox.width / 2));
+        return { target, dxEdgeM, dyEdgeM };
+      });
+
+      const closest = neighbors.reduce((best, curr) => {
+        const currMin = Math.min(curr.dxEdgeM, curr.dyEdgeM);
+        const bestMin = Math.min(best.dxEdgeM, best.dyEdgeM);
+        return currMin < bestMin ? curr : best;
+      });
+
+      const t = closest.target;
+      const tBBox = getShapeBBoxMeters(t);
+      const tCenterPx = {
+        x: centerX + t.position.x * PIXELS_PER_METER * canvasScale,
+        y: centerY + t.position.y * PIXELS_PER_METER * canvasScale,
+      };
+
+      if (closest.dxEdgeM <= closest.dyEdgeM) {
+        const horizDir = Math.sign(tCenterPx.x - movingCenterPx.x) || 1;
+        const movingEdgePx = movingCenterPx.x + toPixels(movingBBox.length / 2) * (horizDir > 0 ? 1 : -1);
+        const targetEdgePx = tCenterPx.x - toPixels(tBBox.length / 2) * (horizDir > 0 ? 1 : -1);
+        const yH = movingCenterPx.y;
+        if (targetEdgePx !== movingEdgePx) {
+          lines.push({ x1: movingEdgePx, y1: yH, x2: targetEdgePx, y2: yH, label: `${closest.dxEdgeM.toFixed(2)} m` });
+        }
+      } else {
+        const vertDir = Math.sign(tCenterPx.y - movingCenterPx.y) || 1;
+        const movingEdgePx = movingCenterPx.y + toPixels(movingBBox.width / 2) * (vertDir > 0 ? 1 : -1);
+        const targetEdgePx = tCenterPx.y - toPixels(tBBox.width / 2) * (vertDir > 0 ? 1 : -1);
+        const xV = movingCenterPx.x;
+        if (targetEdgePx !== movingEdgePx) {
+          lines.push({ x1: xV, y1: movingEdgePx, x2: xV, y2: targetEdgePx, label: `${closest.dyEdgeM.toFixed(2)} m` });
+        }
+      }
+    }
+
+    // Add two closest walls (one per axis) from base AABB of shapes
+    const shapesForWalls = shapes.filter(s => s.id !== moving.id);
+    if (shapesForWalls.length > 0) {
+      const getShapeBBox = getShapeBBoxMeters;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      shapesForWalls.forEach(s => {
+        const b = getShapeBBox(s);
+        minX = Math.min(minX, s.position.x - b.length / 2);
+        maxX = Math.max(maxX, s.position.x + b.length / 2);
+        minY = Math.min(minY, s.position.y - b.width / 2);
+        maxY = Math.max(maxY, s.position.y + b.width / 2);
+      });
+
+      const mLeft = moving.position.x - movingBBox.length / 2;
+      const mRight = moving.position.x + movingBBox.length / 2;
+      const mTop = moving.position.y - movingBBox.width / 2;
+      const mBottom = moving.position.y + movingBBox.width / 2;
+
+      const distLeft = mLeft - minX;
+      const distRight = maxX - mRight;
+      const distTop = mTop - minY;
+      const distBottom = maxY - mBottom;
+
+      // Closest X wall
+      if (isFinite(minX) && isFinite(maxX)) {
+        if (Math.abs(distLeft) <= Math.abs(distRight)) {
+          const xWallPx = centerX + toPixels(minX);
+          const xEdgePx = centerX + toPixels(mLeft);
+          const yLine = movingCenterPx.y;
+          if (xWallPx !== xEdgePx) {
+            lines.push({ x1: xEdgePx, y1: yLine, x2: xWallPx, y2: yLine, label: `${Math.abs(distLeft).toFixed(2)} m` });
+          }
+        } else {
+          const xWallPx = centerX + toPixels(maxX);
+          const xEdgePx = centerX + toPixels(mRight);
+          const yLine = movingCenterPx.y;
+          if (xWallPx !== xEdgePx) {
+            lines.push({ x1: xEdgePx, y1: yLine, x2: xWallPx, y2: yLine, label: `${Math.abs(distRight).toFixed(2)} m` });
+          }
+        }
+      }
+
+      // Closest Y wall
+      if (isFinite(minY) && isFinite(maxY)) {
+        if (Math.abs(distTop) <= Math.abs(distBottom)) {
+          const yWallPx = centerY + toPixels(minY);
+          const yEdgePx = centerY + toPixels(mTop);
+          const xLine = movingCenterPx.x;
+          if (yWallPx !== yEdgePx) {
+            lines.push({ x1: xLine, y1: yEdgePx, x2: xLine, y2: yWallPx, label: `${Math.abs(distTop).toFixed(2)} m` });
+          }
+        } else {
+          const yWallPx = centerY + toPixels(maxY);
+          const yEdgePx = centerY + toPixels(mBottom);
+          const xLine = movingCenterPx.x;
+          if (yWallPx !== yEdgePx) {
+            lines.push({ x1: xLine, y1: yEdgePx, x2: xLine, y2: yWallPx, label: `${Math.abs(distBottom).toFixed(2)} m` });
+          }
+        }
+      }
+    }
+
+    return lines;
   };
 
   const getShapeAt = (x: number, y: number) => {
@@ -213,11 +395,13 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     
     const shapeId = getShapeAt(x, y);
     
@@ -234,8 +418,8 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
         const shape = shapes.find(s => s.id === shapeId);
         if (shape) {
           setDragOffset({
-            x: x - ((canvasRef.current!.width / 2) + shape.position.x * PIXELS_PER_METER * canvasScale),
-            y: y - ((canvasRef.current!.height / 2) + shape.position.y * PIXELS_PER_METER * canvasScale),
+            x: x - ((canvas.width / 2) + shape.position.x * PIXELS_PER_METER * canvasScale),
+            y: y - ((canvas.height / 2) + shape.position.y * PIXELS_PER_METER * canvasScale),
           });
         }
       }
@@ -247,40 +431,44 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !dragShape) return;
 
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
     
-    const newX = (x - dragOffset.x - (canvasRef.current!.width / 2)) / (PIXELS_PER_METER * canvasScale);
-    const newY = (y - dragOffset.y - (canvasRef.current!.height / 2)) / (PIXELS_PER_METER * canvasScale);
+    const newX = (x - dragOffset.x - (canvas.width / 2)) / (PIXELS_PER_METER * canvasScale);
+    const newY = (y - dragOffset.y - (canvas.height / 2)) / (PIXELS_PER_METER * canvasScale);
     
     updateShape(dragShape, {
       position: { x: newX, y: newY }
     });
+
+    const moving = shapes.find(s => s.id === dragShape);
+    if (moving) {
+      setGuidelines(computeGuidelinesForShape({ ...moving, position: { x: newX, y: newY } } as typeof moving));
+    }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
     setDragShape(null);
+    setGuidelines([]);
   };
 
   useEffect(() => {
     drawShapes();
-  }, [shapes, selectedShapeId, canvasScale, canvasOffset]);
+  }, [shapes, selectedShapeId, canvasScale, canvasOffset, isDragging, guidelines]);
 
   const handleZoom = (direction: 'in' | 'out') => {
-    const scaleBy = 1.1;
-    const newScale = direction === 'in' 
-      ? canvasScale * scaleBy 
-      : canvasScale / scaleBy;
-    setCanvasScale(newScale);
+  if (direction === 'in') zoomIn();
+  else zoomOut();
   };
 
   const handleResetView = () => {
-    setCanvasScale(1);
-    setCanvasOffset({ x: 0, y: 0 });
+  recenterCanvas();
   };
 
   const selectedShape = shapes.find(s => s.id === selectedShapeId);
