@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment } from '@react-three/drei';
+import { OrbitControls, Grid, Environment, TransformControls } from '@react-three/drei';
+import SunControls from './SunControls';
 import * as THREE from 'three';
 import { Shape, Obstacle } from '@/stores/shapeStore';
+import SunCalc from "suncalc";
+
 
 interface ThreeSceneProps {
   shapes: Shape[];
@@ -29,7 +32,6 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
           triShape.lineTo(0, -triHeight / 2);
           geometry = new THREE.ExtrudeGeometry(triShape, { depth: height, bevelEnabled: false });
           geometry.rotateX(Math.PI / 2);
-          // Center geometry on Y so base sits on grid when positioned at height/2
           geometry.translate(0, height / 2, 0);
         } else {
           const length = shape.dimensions.length || 1;
@@ -37,7 +39,7 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
           geometry = new THREE.BoxGeometry(length, height, width);
         }
 
-        const yPosition = height / 2; // base at y=0, extrude up
+        const yPosition = height / 2;
         const yRotation = ((shape.rotation || 0) * (Math.PI / 180)) * (shape.type === 'triangle' ? -1 : 1);
 
         return (
@@ -63,16 +65,13 @@ const Building3D = ({ shapes, height }: { shapes: Shape[], height: number }) => 
   );
 };
 
-// Update the interface to include shapes
 interface Obstacles3DProps {
   obstacles: Obstacle[];
   baseHeight: number;
-  shapes: Shape[];  // Add shapes to props
+  shapes: Shape[];
 }
 
-// Update the component to receive shapes prop
 const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
-  // Helper: get axis-aligned footprint (meters) for overlap tests
   const getFootprint = (o: Obstacle) => {
     if (o.type === 'circle') {
       const d = (o.dimensions.radius || 1) * 2;
@@ -111,16 +110,13 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
     return overlapX && overlapZ;
   };
 
-  // Compute stacking: bottomZ (meters) per obstacle using prior placements
   const placements: { id: string; bottomZ: number }[] = [];
   obstacles.forEach((o, idx) => {
-    // Non-solarPanel obstacles never stack; they always sit on base
     if (o.type !== 'solarPanel') {
       placements.push({ id: o.id, bottomZ: baseHeight });
       return;
     }
 
-    // Solar panels can stack atop any overlapping obstacle
     let bottomZ = baseHeight;
     for (let i = 0; i < idx; i++) {
       const prev = obstacles[i];
@@ -163,7 +159,6 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           };
 
           geometry = new THREE.ExtrudeGeometry(triShape, extrudeSettings);
-          // Rotate to stand upright and center on Y
           geometry.rotateX(Math.PI / 2);
           geometry.translate(0, obstacle.height / 2, 0);
         } else if (obstacle.type === 'solarPanel') {
@@ -171,7 +166,6 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           const width = 1;
           const height = obstacle.height;
 
-          // Build a wedge geometry: rectangle base (1x2), sloped top along +X to height
           const vertices = [
             new THREE.Vector3(-length / 2, 0, -width / 2),
             new THREE.Vector3(length / 2, 0, -width / 2),
@@ -184,17 +178,11 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           ];
 
           const indices = [
-            // bottom
             0, 1, 2, 0, 2, 3,
-            // -Z side
             0, 1, 5, 0, 5, 4,
-            // +Z side
             3, 2, 6, 3, 6, 7,
-            // -X side
             0, 4, 7, 0, 7, 3,
-            // +X side (sloped)
             1, 2, 6, 1, 6, 5,
-            // top sloped quad
             4, 5, 6, 4, 6, 7,
           ];
 
@@ -203,12 +191,10 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           geom.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
           geom.setIndex(indices);
           geom.computeVertexNormals();
-          // Center geometry on Y so bottom sits at bottomZ when positioned at bottomZ + height/2
           geom.translate(0, -height / 2, 0);
 
           geometry = geom as THREE.BufferGeometry;
         } else {
-          // Rectangle or Square (default)
           geometry = new THREE.BoxGeometry(
             obstacle.dimensions.length || 1,
             obstacle.height,
@@ -216,23 +202,17 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
           );
         }
 
-        // Calculate stacking-aware Y position
         const placement = placements.find(p => p.id === obstacle.id);
         const bottomZ = placement ? placement.bottomZ : baseHeight;
         const yPosition = bottomZ + (obstacle.height / 2);
 
-        // Create a group to handle rotations correctly
         return (
           <group
             key={obstacle.id}
             position={[obstacle.position.x, yPosition, obstacle.position.y]}
             rotation={[0, (obstacle.type === 'triangle' ? -obstacle.rotation : obstacle.rotation) * (Math.PI / 180), 0]}
           >
-            <mesh
-              geometry={geometry}
-              castShadow
-              receiveShadow
-            >
+            <mesh geometry={geometry} castShadow receiveShadow>
               <meshStandardMaterial 
                 color={obstacle.type === 'solarPanel' ? '#2c5596' : 'hsl(0, 84%, 60%)'}
                 transparent
@@ -249,34 +229,120 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
   );
 };
 
-export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProps) => {
+// -- FIX: Move SunLight OUTSIDE the Canvas return and use it as a JSX element --
+
+const SunLight = ({ latitude, longitude, date, radius = 60, manualPosition }: { latitude: number; longitude: number; date: Date; radius?: number; manualPosition?: [number, number, number] }) => {
+  const [sunPos, setSunPos] = useState<[number, number, number]>([10, 10, 5]);
+
+  useEffect(() => {
+    if (manualPosition) {
+      setSunPos(manualPosition);
+      return;
+    }
+    const pos = SunCalc.getPosition(date, latitude, longitude);
+    const altitude = pos.altitude;
+    const azimuth = pos.azimuth;
+
+    const x = radius * Math.cos(altitude) * Math.sin(azimuth);
+    const y = radius * Math.sin(altitude);
+    const z = radius * Math.cos(altitude) * Math.cos(azimuth);
+    setSunPos([x, y, z]);
+  }, [latitude, longitude, date, radius, manualPosition]);
+
   return (
-    <div className="w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
+    <directionalLight
+      position={sunPos}
+      intensity={1}
+      castShadow
+      shadow-mapSize-width={2048}
+      shadow-mapSize-height={2048}
+      shadow-bias={-0.0001}
+      shadow-normalBias={0.02}
+    />
+  );
+};
+
+export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProps) => {
+  const [latitude, setLatitude] = useState(18.5204);
+  const [longitude, setLongitude] = useState(73.8567);
+  const [date, setDate] = useState<Date>(() => new Date());
+  const sunRadius = 60;
+  const [manualSunEnabled, setManualSunEnabled] = useState(false);
+  const [manualSunPos, setManualSunPos] = useState<[number, number, number] | undefined>(undefined);
+  const [playing, setPlaying] = useState(false);
+
+  // Keep minutes aligned to slider without drifting
+  const [timeMinutes, setTimeMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    const d = new Date(date);
+    const hours = Math.floor(timeMinutes / 60);
+    const minutes = timeMinutes % 60;
+    d.setHours(hours, minutes, 0, 0);
+    setDate(d);
+  }, [timeMinutes]);
+
+  // Auto progression when playing
+  useEffect(() => {
+    if (!playing) return;
+    const stepMinutes = 5; // advance 5 minutes per tick
+    const intervalMs = 200; // every 200ms
+    const id = setInterval(() => {
+      setTimeMinutes((m) => (m + stepMinutes + 24 * 60) % (24 * 60));
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [playing]);
+
+  return (
+    <div className="relative w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
       <Canvas
         camera={{ position: [20, 20, 20], fov: 50 }}
         shadows
       >
-        <ambientLight intensity={0.6} />
-        <directionalLight 
-          position={[10, 10, 5]} 
-          intensity={1} 
-          castShadow 
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-        />
-        
+        <SunLight latitude={latitude} longitude={longitude} date={date} radius={sunRadius} manualPosition={manualSunEnabled && manualSunPos ? manualSunPos : undefined} />
+        {/* Draggable sun sphere */}
+        <TransformControls
+          mode="translate"
+          enabled={true}
+          showX={true}
+          showY={true}
+          showZ={true}
+          onObjectChange={(e) => {
+            const obj = (e as unknown as { target?: any }).target?.object as THREE.Object3D | undefined;
+            if (!obj) return;
+            const v = new THREE.Vector3().copy(obj.position);
+            if (v.lengthSq() === 0) {
+              v.set(1, 1, 1);
+            }
+            // Constrain to sky dome at fixed radius and keep above horizon
+            v.setLength(sunRadius);
+            v.y = Math.abs(v.y);
+            obj.position.copy(v);
+            setManualSunEnabled(true);
+            setManualSunPos([v.x, v.y, v.z]);
+          }}
+        >
+          <mesh position={manualSunEnabled && manualSunPos ? manualSunPos : (() => {
+            const pos = SunCalc.getPosition(date, latitude, longitude);
+            const x = sunRadius * Math.cos(pos.altitude) * Math.sin(pos.azimuth);
+            const y = sunRadius * Math.sin(pos.altitude);
+            const z = sunRadius * Math.cos(pos.altitude) * Math.cos(pos.azimuth);
+            return [x, Math.max(0.0001, y), z] as [number, number, number];
+          })()}>
+            <sphereGeometry args={[1.2, 16, 16]} />
+            <meshBasicMaterial color="#ffcc33" />
+          </mesh>
+        </TransformControls>
         <Environment preset="city" />
-        
-        {/* Base building */}
         <Building3D shapes={shapes} height={buildingHeight} />
-        
-        {/* Obstacles - update the Obstacles3D component to use buildingHeight */}
         <Obstacles3D 
           obstacles={obstacles} 
           baseHeight={buildingHeight}
-          shapes={shapes}  // Pass shapes to Obstacles3D
+          shapes={shapes}
         />
-        
         <Grid
           infiniteGrid 
           cellSize={1} 
@@ -288,7 +354,6 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           fadeDistance={50} 
           fadeStrength={1}
         />
-        
         <OrbitControls 
           enablePan={true} 
           enableZoom={true} 
@@ -297,6 +362,21 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           maxDistance={100}
         />
       </Canvas>
+
+      <SunControls
+        latitude={latitude}
+        longitude={longitude}
+        date={date}
+        timeMinutes={timeMinutes}
+        manualSunEnabled={manualSunEnabled}
+        onLatitudeChange={setLatitude}
+        onLongitudeChange={setLongitude}
+        onDateChange={setDate}
+        onTimeMinutesChange={setTimeMinutes}
+        onManualToggle={(enabled) => setManualSunEnabled(enabled)}
+        playing={playing}
+        onTogglePlay={() => setPlaying((p) => !p)}
+      />
     </div>
   );
 };
