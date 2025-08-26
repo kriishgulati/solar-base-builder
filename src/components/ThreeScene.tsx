@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment, TransformControls } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Grid, Environment, TransformControls, Html } from '@react-three/drei';
+import ShadowCoverageCalculator from '@/lib/ShadowCoverageCalculator';
 import SunControls from './SunControls';
 import * as THREE from 'three';
 import { Shape, Obstacle } from '@/stores/shapeStore';
@@ -69,7 +70,57 @@ interface Obstacles3DProps {
   shapes: Shape[];
 }
 
-const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
+const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles3DProps & { onHoverUpdate?: (v: { visible: boolean; x?: number; y?: number; text?: string }) => void }) => {
+  const { gl, scene, camera } = useThree();
+  const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; target?: THREE.Object3D }>(() => ({ visible: false, text: '' }));
+  const calcRef = useMemo(() => ({ current: null as null | ShadowCoverageCalculator }), []);
+  useEffect(() => {
+    const dirLight = scene.children.find((o) => (o as any).isDirectionalLight) as THREE.DirectionalLight | undefined;
+    if (!dirLight) return;
+    if (!calcRef.current) {
+      calcRef.current = new ShadowCoverageCalculator(gl as any, scene as any, dirLight, { rtSize: 2048, eps: 1e-4, cacheTTL: 2000, debug: false });
+    }
+    return () => { /* keep calculator for lifespan of canvas */ };
+  }, [gl, scene]);
+
+  // Pointer hover handling
+  useEffect(() => {
+    const dom = (gl as any).domElement as HTMLCanvasElement;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let raf = 0;
+
+    const onMove = async (e: PointerEvent) => {
+      const rect = dom.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      const hit = intersects.find((i) => (i.object as any).isMesh);
+      if (!hit) { setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); return; }
+      let m = hit.object as THREE.Mesh;
+      // identify solar panel by dimensions or userData
+      if (!(m.userData && m.userData.type === 'solarPanel')) {
+        let p: THREE.Object3D | null = m;
+        while (p && (!p.userData || p.userData.type !== 'solarPanel')) p = p.parent;
+        if (p && (p as any).isMesh) m = p as any; else { setTooltip((t) => ({ ...t, visible: false })); return; }
+      }
+
+      if (!calcRef.current) return;
+      const cached = calcRef.current.getCachedCoverage(m);
+      if (cached) { setTooltip({ visible: true, text: `Shadow Coverage: ${cached.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${cached.percent}%` }); return; }
+      setTooltip({ visible: true, text: 'Calculating…', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Calculating…' });
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(async () => {
+        try { const res = await calcRef.current!.computeCoverage(m); setTooltip({ visible: true, text: `Shadow Coverage: ${res.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${res.percent}%` }); }
+        catch { setTooltip({ visible: true, text: 'Unavailable', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Unavailable' }); }
+      });
+    };
+    const onLeave = () => { setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); };
+    dom.addEventListener('pointermove', onMove);
+    dom.addEventListener('pointerleave', onLeave);
+    return () => { dom.removeEventListener('pointermove', onMove); dom.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(raf); };
+  }, [gl, scene, camera]);
   const getFootprint = (o: Obstacle) => {
     if (o.type === 'circle') {
       const d = (o.dimensions.radius || 1) * 2;
@@ -259,12 +310,19 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes }: Obstacles3DProps) => {
             position={[obstacle.position.x, yPosition, obstacle.position.y]}
             rotation={[0, (obstacle.type === 'triangle' ? -obstacle.rotation : obstacle.rotation) * (Math.PI / 180), 0]}
           >
-            <mesh geometry={geometry} castShadow receiveShadow>
+            <mesh geometry={geometry} castShadow receiveShadow userData={{ type: obstacle.type === 'solarPanel' ? 'solarPanel' : 'obstacle' }}>
               <meshStandardMaterial 
                 color={obstacle.type === 'solarPanel' ? '#2c5596' : 'hsl(0, 84%, 60%)'}
-                side={THREE.DoubleSide}
-                roughness={0.4}
+                transparent={false}
+                opacity={1}
+                depthWrite={true}
+                depthTest={true}
+                side={obstacle.type === 'solarPanel' ? THREE.DoubleSide : THREE.FrontSide}
+                roughness={0.5}
                 metalness={0.1}
+                polygonOffset={obstacle.type === 'solarPanel'}
+                polygonOffsetFactor={obstacle.type === 'solarPanel' ? 1 : 0}
+                polygonOffsetUnits={obstacle.type === 'solarPanel' ? 1 : 0}
               />
             </mesh>
           </group>
@@ -407,7 +465,15 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
 
         <group position={[-modelCenter[0], 0, -modelCenter[2]]}>
           <Building3D shapes={shapes} height={buildingHeight} />
-          <Obstacles3D obstacles={obstacles} baseHeight={buildingHeight} shapes={shapes} />
+          <Obstacles3D obstacles={obstacles} baseHeight={buildingHeight} shapes={shapes} onHoverUpdate={(v) => {
+            const el = document.getElementById('shadow-coverage-tooltip');
+            if (!el) return;
+            if (!v.visible) { el.style.display = 'none'; return; }
+            el.style.display = 'block';
+            el.style.left = ((v.x || 0) + 12) + 'px';
+            el.style.top = ((v.y || 0) + 12) + 'px';
+            el.textContent = v.text || '';
+          }} />
         </group>
 
         <Grid
@@ -431,6 +497,8 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           target={[0, Math.max(1, buildingHeight / 2), 0]}
         />
       </Canvas>
+
+      <div id="shadow-coverage-tooltip" style={{ position: 'fixed', display: 'none', pointerEvents: 'none', background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '4px 6px', borderRadius: 4, fontSize: 12, zIndex: 1000 }} />
 
       <SunControls
         latitude={latitude}
