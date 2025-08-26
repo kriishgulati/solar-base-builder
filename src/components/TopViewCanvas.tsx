@@ -106,14 +106,34 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     ctx.strokeStyle = 'hsl(213, 30%, 90%)';
     ctx.lineWidth = 0.5;
 
-    for (let x = 0; x <= width; x += gridSize) {
+    // account for canvasOffset (world meters) when drawing grid so lines stay in sync
+  const centerX = width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
+
+    // vertical lines to the right
+    for (let x = centerX; x <= width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    // vertical lines to the left
+    for (let x = centerX - gridSize; x >= 0; x -= gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
 
-    for (let y = 0; y <= height; y += gridSize) {
+    // horizontal lines below
+    for (let y = centerY; y <= height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    // horizontal lines above
+    for (let y = centerY - gridSize; y >= 0; y -= gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -124,9 +144,11 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawShape = (ctx: CanvasRenderingContext2D, shape: Shape, isSelected: boolean, isHovered: boolean, type: 'base' | 'obstacle' = 'base') => {
     ctx.save();
     
-    const canvas = canvasRef.current;
-    const x = (canvas ? canvas.width / 2 : 0) + shape.position.x * PIXELS_PER_METER * canvasScale;
-    const y = (canvas ? canvas.height / 2 : 0) + shape.position.y * PIXELS_PER_METER * canvasScale;
+  const canvas = canvasRef.current;
+  const centerX = (canvas ? canvas.width / 2 : 0) + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = (canvas ? canvas.height / 2 : 0) + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
+  const x = centerX + shape.position.x * PIXELS_PER_METER * canvasScale;
+  const y = centerY + shape.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((shape.rotation * Math.PI) / 180);
@@ -174,9 +196,11 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const drawObstacle = (ctx: CanvasRenderingContext2D, obstacle: Obstacle, isSelected: boolean) => {
     ctx.save();
     
-    const canvas = canvasRef.current;
-    const x = (canvas ? canvas.width / 2 : 0) + obstacle.position.x * PIXELS_PER_METER * canvasScale;
-    const y = (canvas ? canvas.height / 2 : 0) + obstacle.position.y * PIXELS_PER_METER * canvasScale;
+  const canvas = canvasRef.current;
+  const centerX = (canvas ? canvas.width / 2 : 0) + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = (canvas ? canvas.height / 2 : 0) + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
+  const x = centerX + obstacle.position.x * PIXELS_PER_METER * canvasScale;
+  const y = centerY + obstacle.position.y * PIXELS_PER_METER * canvasScale;
     
     ctx.translate(x, y);
     ctx.rotate((obstacle.rotation * Math.PI) / 180);
@@ -226,39 +250,43 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
-    const transformedX = (x - (canvas.width / 2)) / canvasScale;
-    const transformedY = (y - (canvas.height / 2)) / canvasScale;
+    const centerX = canvas.width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+    const centerY = canvas.height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
+
+    // convert screen coords to world meters
+    const worldX = (x - centerX) / (PIXELS_PER_METER * canvasScale);
+    const worldY = (y - centerY) / (PIXELS_PER_METER * canvasScale);
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obstacle = obstacles[i];
-      const obstacleX = obstacle.position.x * PIXELS_PER_METER;
-      const obstacleY = obstacle.position.y * PIXELS_PER_METER;
+      const obstacleX = obstacle.position.x;
+      const obstacleY = obstacle.position.y;
 
       let isInside = false;
 
       if (obstacle.type === 'circle') {
-        const radius = (obstacle.dimensions.radius || 1) * PIXELS_PER_METER;
+        const radius = (obstacle.dimensions.radius || 1);
         const distance = Math.sqrt(
-          Math.pow(transformedX - obstacleX, 2) + Math.pow(transformedY - obstacleY, 2)
+          Math.pow(worldX - obstacleX, 2) + Math.pow(worldY - obstacleY, 2)
         );
         isInside = distance <= radius;
       } else if (obstacle.type === 'triangle') {
-        const length = (obstacle.dimensions.length || 1) * PIXELS_PER_METER;
+        const length = (obstacle.dimensions.length || 1);
         const height = (length * Math.sqrt(3)) / 2;
         
-        const dx = transformedX - obstacleX;
-        const dy = transformedY - obstacleY;
+        const dx = worldX - obstacleX;
+        const dy = worldY - obstacleY;
         
         isInside = Math.abs(dx) <= length / 2 && Math.abs(dy) <= height / 2;
       } else {
         const baseLengthMeters = obstacle.type === 'solarPanel' ? 2 : (obstacle.dimensions.length || 1);
         const baseWidthMeters = obstacle.type === 'solarPanel' ? 1 : (obstacle.type === 'square' ? (obstacle.dimensions.length || 1) : (obstacle.dimensions.width || 1));
-        const length = baseLengthMeters * PIXELS_PER_METER;
-        const width = baseWidthMeters * PIXELS_PER_METER;
+        const length = baseLengthMeters;
+        const width = baseWidthMeters;
 
         // Approximate hit test ignoring rotation (existing behavior)
-        const dx = transformedX - obstacleX;
-        const dy = transformedY - obstacleY;
+        const dx = worldX - obstacleX;
+        const dy = worldY - obstacleY;
         isInside = Math.abs(dx) <= length / 2 && Math.abs(dy) <= width / 2;
       }
 
@@ -474,13 +502,17 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         selectObstacle(obstacleId);
         setIsDragging(true);
         setDraggedObstacle(obstacleId);
-        
-        const transformedX = (x - (canvas.width / 2)) / canvasScale;
-        const transformedY = (y - (canvas.height / 2)) / canvasScale;
-        
+
+        const centerX = canvas.width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+        const centerY = canvas.height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
+
+        // world coords in meters
+        const worldX = (x - centerX) / (PIXELS_PER_METER * canvasScale);
+        const worldY = (y - centerY) / (PIXELS_PER_METER * canvasScale);
+
         setDragOffset({
-          x: transformedX - obstacle.position.x * PIXELS_PER_METER,
-          y: transformedY - obstacle.position.y * PIXELS_PER_METER,
+          x: worldX - obstacle.position.x,
+          y: worldY - obstacle.position.y,
         });
       }
     } else {
@@ -498,11 +530,14 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const transformedX = (x - (canvas.width / 2)) / canvasScale;
-    const transformedY = (y - (canvas.height / 2)) / canvasScale;
+  const centerX = canvas.width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = canvas.height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
 
-    let newX = (transformedX - dragOffset.x) / PIXELS_PER_METER;
-    let newY = (transformedY - dragOffset.y) / PIXELS_PER_METER;
+  const worldX = (x - centerX) / (PIXELS_PER_METER * canvasScale);
+  const worldY = (y - centerY) / (PIXELS_PER_METER * canvasScale);
+
+  let newX = (worldX - dragOffset.x);
+  let newY = (worldY - dragOffset.y);
 
     // Snap-to-grid unless Ctrl is held
     if (!e.ctrlKey) {

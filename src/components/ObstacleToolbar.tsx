@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RotateCcw, Trash2, Plus, Copy } from 'lucide-react';
+import { RotateCcw, Trash2, Plus, Copy, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ObstacleToolbarProps {
   onClose: () => void;
@@ -22,6 +22,10 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
     updateObstacle,
     selectObstacle,
   copyObstacle,
+  zoomIn,
+  zoomOut,
+  recenterCanvas,
+  recenterOnSelectedObstacle,
   } = useShapeStore();
 
   const selectedObstacle = obstacles.find(o => o.id === selectedObstacleId);
@@ -111,6 +115,25 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
         <p className="text-sm text-muted-foreground mb-4">
           Place obstacles on or around your base structure
         </p>
+      </div>
+
+      {/* Zoom & Recenter Controls */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-foreground">View</Label>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => zoomIn()} title="Zoom In">
+            <ZoomIn size={14} />
+          </Button>
+          <Button size="sm" onClick={() => zoomOut()} title="Zoom Out">
+            <ZoomOut size={14} />
+          </Button>
+          <Button size="sm" onClick={() => recenterCanvas()} title="Recenter">
+            <RotateCcw size={14} />
+          </Button>
+          <Button size="sm" onClick={() => recenterOnSelectedObstacle()} title="Center on Selected">
+            <RotateCcw size={14} />
+          </Button>
+        </div>
       </div>
 
       {/* Shape Type Selection */}

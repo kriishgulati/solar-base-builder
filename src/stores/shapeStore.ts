@@ -35,6 +35,11 @@ interface ShapeStore {
   activeShapeType: 'rectangle' | 'square' | 'circle' | 'triangle' | 'solarPanel';
   canvasScale: number;
   canvasOffset: { x: number; y: number };
+  // grid & zoom config
+  gridSize: number; // world units per grid cell (e.g. 1 = 1m)
+  zoomStep: number;
+  minScale: number;
+  maxScale: number;
   shapeMergeEnabled: boolean;
   obstacleMode: boolean;
   baseHeight: number;
@@ -59,6 +64,12 @@ interface ShapeStore {
   copyShape: (id: string) => void;
   copyObstacle: (id: string) => void;
   setBaseHeight: (height: number) => void;
+  // zoom & helpers
+  zoomIn: () => void;
+  zoomOut: () => void;
+  recenterCanvas: () => void;
+  recenterOnSelectedObstacle: () => void;
+  snapToGrid: (pos: { x: number; y: number }) => { x: number; y: number };
 }
 
 export const useShapeStore = create<ShapeStore>((set, get) => ({
@@ -72,10 +83,18 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   shapeMergeEnabled: false,
   obstacleMode: false,
   baseHeight: 3, // Default height
+  // grid & zoom defaults
+  gridSize: 1,
+  zoomStep: 1.2,
+  minScale: 0.1,
+  maxScale: 5,
 
   addShape: (shapeData) => {
+    // snap incoming position to grid so corners align with grid lines
+    const pos = get().snapToGrid(shapeData.position);
     const newShape: Shape = {
       ...shapeData,
+      position: pos,
       id: `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       connectedTo: [],
       merged: false,
@@ -88,8 +107,11 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   },
 
   addObstacle: (obstacleData) => {
+    // snap obstacle position to grid
+    const pos = get().snapToGrid(obstacleData.position);
     const newObstacle: Obstacle = {
       ...obstacleData,
+      position: pos,
       id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
 
@@ -196,10 +218,12 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     const state = get();
     const shape = state.shapes.find(s => s.id === id);
     if (!shape) return;
+    const offset = { x: shape.position.x + 1, y: shape.position.y + 1 };
+    const snapped = get().snapToGrid(offset);
     const newShape: Shape = {
       ...shape,
       id: `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      position: { x: shape.position.x + 1, y: shape.position.y + 1 }, // offset to avoid exact overlap
+      position: snapped,
       connectedTo: [],
       merged: false,
     };
@@ -210,13 +234,50 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     const state = get();
     const obs = state.obstacles.find(o => o.id === id);
     if (!obs) return;
+    const offset = { x: obs.position.x + 1, y: obs.position.y + 1 };
+    const snapped = get().snapToGrid(offset);
     const newObs: Obstacle = {
       ...obs,
       id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      position: { x: obs.position.x + 1, y: obs.position.y + 1 },
+      position: snapped,
     };
     set({ obstacles: [...state.obstacles, newObs], selectedObstacleId: newObs.id });
   },
 
   setBaseHeight: (height: number) => set({ baseHeight: height }),
+  // zoom / recenter helpers
+  zoomIn: () => {
+    const { canvasScale, zoomStep, maxScale } = get();
+    const next = Math.min(maxScale, canvasScale * zoomStep);
+    set({ canvasScale: next });
+  },
+
+  zoomOut: () => {
+    const { canvasScale, zoomStep, minScale } = get();
+    const next = Math.max(minScale, canvasScale / zoomStep);
+    set({ canvasScale: next });
+  },
+
+  recenterCanvas: () => {
+    set({ canvasOffset: { x: 0, y: 0 } });
+  },
+
+  recenterOnSelectedObstacle: () => {
+    const state = get();
+    const sel = state.selectedObstacleId ? state.obstacles.find(o => o.id === state.selectedObstacleId) : null;
+    if (!sel) {
+      set({ canvasOffset: { x: 0, y: 0 } });
+      return;
+    }
+    // world-space centering: offset so selected obstacle is at origin
+    set({ canvasOffset: { x: -sel.position.x, y: -sel.position.y } });
+  },
+
+  snapToGrid: (pos) => {
+    const { gridSize } = get();
+    return {
+      x: Math.round(pos.x / gridSize) * gridSize,
+      y: Math.round(pos.y / gridSize) * gridSize,
+    };
+  },
 }));

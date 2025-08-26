@@ -28,10 +28,13 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
     updateShape,
     deleteShape,
     canvasScale,
-    setCanvasScale,
+  setCanvasScale,
     canvasOffset,
-    setCanvasOffset,
+  setCanvasOffset,
     shapeMergeEnabled,
+  zoomIn,
+  zoomOut,
+  recenterCanvas,
   } = useShapeStore();
 
   const drawShapes = () => {
@@ -49,8 +52,8 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
     ctx.lineWidth = 1;
     ctx.globalAlpha = 0.2;
     const gridSize = PIXELS_PER_METER * canvasScale;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+  const centerX = canvas.width / 2 + (canvasOffset.x * PIXELS_PER_METER * canvasScale);
+  const centerY = canvas.height / 2 + (canvasOffset.y * PIXELS_PER_METER * canvasScale);
     // vertical lines to the right
     for (let x = centerX; x <= canvas.width; x += gridSize) {
       ctx.beginPath();
@@ -460,16 +463,12 @@ export const SimpleCanvas = ({ setShowObstacleMode }: { setShowObstacleMode: (v:
   }, [shapes, selectedShapeId, canvasScale, canvasOffset, isDragging, guidelines]);
 
   const handleZoom = (direction: 'in' | 'out') => {
-    const scaleBy = 1.1;
-    const newScale = direction === 'in' 
-      ? canvasScale * scaleBy 
-      : canvasScale / scaleBy;
-    setCanvasScale(newScale);
+  if (direction === 'in') zoomIn();
+  else zoomOut();
   };
 
   const handleResetView = () => {
-    setCanvasScale(1);
-    setCanvasOffset({ x: 0, y: 0 });
+  recenterCanvas();
   };
 
   const selectedShape = shapes.find(s => s.id === selectedShapeId);
