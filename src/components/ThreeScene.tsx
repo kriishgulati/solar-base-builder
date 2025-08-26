@@ -345,36 +345,57 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
     return () => clearInterval(id);
   }, [playing]);
 
+  const modelCenter = useMemo<[number, number, number]>(() => {
+    const xs: number[] = [];
+    const zs: number[] = [];
+    shapes.forEach(s => { xs.push(s.position.x); zs.push(s.position.y); });
+    obstacles.forEach(o => { xs.push(o.position.x); zs.push(o.position.y); });
+    if (xs.length === 0) return [0, 0, 0];
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+    return [cx, 0, cz];
+  }, [shapes, obstacles]);
+
   return (
     <div className="relative w-full h-full bg-gradient-to-b from-sky-200 to-sky-100">
       <Canvas
         camera={{ position: [20, 20, 20], fov: 50 }}
         shadows
       >
-        <SunLight latitude={latitude} longitude={longitude} date={date} radius={sunRadius} manualPosition={manualSunEnabled && manualSunPos ? manualSunPos : undefined} />
-        {/* Draggable sun sphere */}
-        <TransformControls
-          mode="translate"
-          enabled={true}
-          showX={true}
-          showY={true}
-          showZ={true}
-          onObjectChange={(e) => {
-            const obj = (e as unknown as { target?: any }).target?.object as THREE.Object3D | undefined;
-            if (!obj) return;
-            const v = new THREE.Vector3().copy(obj.position);
-            if (v.lengthSq() === 0) {
-              v.set(1, 1, 1);
-            }
-            // Constrain to sky dome at fixed radius and keep above horizon
-            v.setLength(sunRadius);
-            v.y = Math.abs(v.y);
-            obj.position.copy(v);
-            setManualSunEnabled(true);
-            setManualSunPos([v.x, v.y, v.z]);
-          }}
-        >
-          <mesh position={manualSunEnabled && manualSunPos ? manualSunPos : (() => {
+        <SunLight
+          latitude={latitude}
+          longitude={longitude}
+          date={date}
+          radius={sunRadius}
+          manualPosition={manualSunEnabled && manualSunPos ? manualSunPos : undefined}
+        />
+
+        {manualSunEnabled ? (
+          <TransformControls
+            mode="translate"
+            enabled
+            showX
+            showY
+            showZ
+            onObjectChange={(e) => {
+              const obj = (e as unknown as { target?: any }).target?.object as THREE.Object3D | undefined;
+              if (!obj) return;
+              const v = new THREE.Vector3().copy(obj.position);
+              if (v.lengthSq() === 0) v.set(1, 1, 1);
+              v.setLength(sunRadius);
+              v.y = Math.abs(v.y);
+              obj.position.copy(v);
+              setManualSunEnabled(true);
+              setManualSunPos([v.x, v.y, v.z]);
+            }}
+          >
+            <mesh position={manualSunPos}>
+              <sphereGeometry args={[1.2, 16, 16]} />
+              <meshBasicMaterial color="#ffcc33" />
+            </mesh>
+          </TransformControls>
+        ) : (
+          <mesh position={(() => {
             const pos = SunCalc.getPosition(date, latitude, longitude);
             const x = sunRadius * Math.cos(pos.altitude) * Math.sin(pos.azimuth);
             const y = sunRadius * Math.sin(pos.altitude);
@@ -384,31 +405,34 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
             <sphereGeometry args={[1.2, 16, 16]} />
             <meshBasicMaterial color="#ffcc33" />
           </mesh>
-        </TransformControls>
+        )}
+
         <Environment preset="city" />
-        <Building3D shapes={shapes} height={buildingHeight} />
-        <Obstacles3D 
-          obstacles={obstacles} 
-          baseHeight={buildingHeight}
-          shapes={shapes}
-        />
+
+        <group position={[-modelCenter[0], 0, -modelCenter[2]]}>
+          <Building3D shapes={shapes} height={buildingHeight} />
+          <Obstacles3D obstacles={obstacles} baseHeight={buildingHeight} shapes={shapes} />
+        </group>
+
         <Grid
-          infiniteGrid 
-          cellSize={1} 
-          cellThickness={0.5} 
-          cellColor="hsl(213, 30%, 60%)" 
-          sectionSize={10} 
-          sectionThickness={1} 
-          sectionColor="hsl(213, 50%, 40%)" 
-          fadeDistance={50} 
+          infiniteGrid
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor="hsl(213, 30%, 60%)"
+          sectionSize={10}
+          sectionThickness={1}
+          sectionColor="hsl(213, 50%, 40%)"
+          fadeDistance={50}
           fadeStrength={1}
         />
-        <OrbitControls 
-          enablePan={true} 
-          enableZoom={true} 
-          enableRotate={true}
+
+        <OrbitControls
+          enablePan
+          enableZoom
+          enableRotate
           minDistance={5}
           maxDistance={100}
+          target={[0, Math.max(1, buildingHeight / 2), 0]}
         />
       </Canvas>
 
