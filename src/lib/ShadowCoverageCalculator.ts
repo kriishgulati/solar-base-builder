@@ -175,6 +175,12 @@ export class ShadowCoverageCalculator {
   }
 
   async computeCoverage(panel: THREE.Mesh): Promise<ShadowCoverageResult> {
+    // If sun is below the horizon or effectively off, everything is shadowed
+    if (this.light.position.y <= 0.0001 || this.light.intensity <= 1e-6) {
+      const result: ShadowCoverageResult = { percent: 100, totalPixels: 1, shadowedPixels: 1, at: performance.now() };
+      this.cache.set(panel, result);
+      return result;
+    }
     const cached = this.getCachedCoverage(panel);
     if (cached) return cached;
 

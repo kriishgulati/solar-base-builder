@@ -78,7 +78,7 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles
     const dirLight = scene.children.find((o) => (o as any).isDirectionalLight) as THREE.DirectionalLight | undefined;
     if (!dirLight) return;
     if (!calcRef.current) {
-      calcRef.current = new ShadowCoverageCalculator(gl as any, scene as any, dirLight, { rtSize: 4096, eps: 1e-4, cacheTTL: 500, debug: false });
+      calcRef.current = new ShadowCoverageCalculator(gl as any, scene as any, dirLight, { rtSize: 2048, eps: 1e-4, cacheTTL: 2000, debug: false });
     }
     return () => { /* keep calculator for lifespan of canvas */ };
   }, [gl, scene]);
@@ -89,45 +89,34 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let raf = 0;
-    // Guards to prevent stale async updates from re-showing tooltip after leaving
-    let hoverToken = 0;
-    let hoverActive = false;
 
     const onMove = async (e: PointerEvent) => {
-      hoverActive = true;
-      const token = ++hoverToken;
       const rect = dom.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find((i) => (i.object as any).isMesh);
-      if (!hit) { hoverActive = false; cancelAnimationFrame(raf); setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); return; }
+      if (!hit) { setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); return; }
       let m = hit.object as THREE.Mesh;
       // identify solar panel by dimensions or userData
       if (!(m.userData && m.userData.type === 'solarPanel')) {
         let p: THREE.Object3D | null = m;
         while (p && (!p.userData || p.userData.type !== 'solarPanel')) p = p.parent;
-        if (p && (p as any).isMesh) m = p as any; else { hoverActive = false; cancelAnimationFrame(raf); setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); return; }
+        if (p && (p as any).isMesh) m = p as any; else { setTooltip((t) => ({ ...t, visible: false })); return; }
       }
 
       if (!calcRef.current) return;
       const cached = calcRef.current.getCachedCoverage(m);
-      if (cached) { if (!hoverActive || token !== hoverToken) return; const pct = (cached.percent as number).toFixed(2); setTooltip({ visible: true, text: `Shadow Coverage: ${pct}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${pct}%` }); return; }
+      if (cached) { setTooltip({ visible: true, text: `Shadow Coverage: ${cached.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${cached.percent}%` }); return; }
       setTooltip({ visible: true, text: 'Calculating…', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Calculating…' });
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(async () => {
-        try {
-          const res = await calcRef.current!.computeCoverage(m);
-          if (!hoverActive || token !== hoverToken) return;
-          const pct = (res.percent as number).toFixed(2);
-          setTooltip({ visible: true, text: `Shadow Coverage: ${pct}%`, target: m });
-          onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${pct}%` });
-        }
+        try { const res = await calcRef.current!.computeCoverage(m); setTooltip({ visible: true, text: `Shadow Coverage: ${res.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${res.percent}%` }); }
         catch { setTooltip({ visible: true, text: 'Unavailable', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Unavailable' }); }
       });
     };
-    const onLeave = () => { hoverActive = false; hoverToken++; cancelAnimationFrame(raf); setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); };
+    const onLeave = () => { setTooltip((t) => ({ ...t, visible: false })); onHoverUpdate && onHoverUpdate({ visible: false }); };
     dom.addEventListener('pointermove', onMove);
     dom.addEventListener('pointerleave', onLeave);
     return () => { dom.removeEventListener('pointermove', onMove); dom.removeEventListener('pointerleave', onLeave); cancelAnimationFrame(raf); };
