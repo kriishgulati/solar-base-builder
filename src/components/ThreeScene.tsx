@@ -70,18 +70,84 @@ interface Obstacles3DProps {
   shapes: Shape[];
 }
 
-const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles3DProps & { onHoverUpdate?: (v: { visible: boolean; x?: number; y?: number; text?: string }) => void }) => {
+const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate, onAggregateUpdate, invalidateKey }: Obstacles3DProps & { onHoverUpdate?: (v: { visible: boolean; x?: number; y?: number; text?: string }) => void; onAggregateUpdate?: (avg: number) => void; invalidateKey?: string }) => {
   const { gl, scene, camera } = useThree();
   const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; target?: THREE.Object3D }>(() => ({ visible: false, text: '' }));
   const calcRef = useMemo(() => ({ current: null as null | ShadowCoverageCalculator }), []);
+  const panelsRef = useMemo(() => ({ list: [] as THREE.Mesh[] }), []);
+  const percentByIdRef = useMemo(() => ({ map: new Map<string, number>() }), []);
   useEffect(() => {
     const dirLight = scene.children.find((o) => (o as any).isDirectionalLight) as THREE.DirectionalLight | undefined;
     if (!dirLight) return;
     if (!calcRef.current) {
-      calcRef.current = new ShadowCoverageCalculator(gl as any, scene as any, dirLight, { rtSize: 2048, eps: 1e-4, cacheTTL: 2000, debug: false });
+      // Lower resolution for smoother background computations; hover remains accurate due to float comparisons
+      calcRef.current = new ShadowCoverageCalculator(gl as any, scene as any, dirLight, { rtSize: 1024, eps: 1e-4, cacheTTL: 2000, debug: false });
     }
     return () => { /* keep calculator for lifespan of canvas */ };
   }, [gl, scene]);
+
+  // Collect panels whenever obstacles change
+  useEffect(() => {
+    const list: THREE.Mesh[] = [];
+    scene.traverse((obj) => {
+      const m = obj as THREE.Mesh;
+      if ((m as any).isMesh && m.userData && m.userData.type === 'solarPanel') list.push(m);
+    });
+    panelsRef.list = list;
+  }, [scene, obstacles]);
+
+  // Invalidate cached coverage when sun/time key changes
+  useEffect(() => {
+    if (calcRef.current) {
+      calcRef.current.invalidate(null);
+    }
+    // Mark stored panel values as stale (optional)
+    panelsRef.list.forEach((p) => { (p.userData as any).shadowPercent = undefined; });
+    // Background sweep: compute one panel ~every 80ms, pause if interacting
+    let cancelled = false;
+    let idx = 0;
+    const panels = [...panelsRef.list];
+    const step = async () => {
+      if (cancelled || !calcRef.current || panels.length === 0) return;
+      const m = panels[idx % panels.length];
+      idx++;
+      try {
+        const res = await calcRef.current.computeCoverage(m);
+        (m.userData as any).shadowPercent = res.percent;
+      } catch {
+        (m.userData as any).shadowPercent = 0;
+      }
+      recalcAggregate();
+      if (!cancelled) setTimeout(step, 80);
+    };
+    setTimeout(step, 80);
+    return () => { cancelled = true; };
+  }, [invalidateKey]);
+
+  // Lightweight aggregate recompute using only stored/cached values, skipping unknowns
+  const recalcAggregate = () => {
+    const panels = panelsRef.list;
+    if (panels.length === 0) { onAggregateUpdate && onAggregateUpdate(0); return; }
+    let sum = 0;
+    let count = 0;
+    for (const m of panels) {
+      const id = (m.userData && (m.userData as any).id) as string | undefined;
+      let v: number | undefined = (m.userData as any).shadowPercent;
+      if (typeof v !== 'number' || !isFinite(v)) {
+        const cached = calcRef.current?.getCachedCoverage(m);
+        if (cached) v = cached.percent as number;
+        else if (id) v = percentByIdRef.map.get(id);
+      }
+      if (typeof v === 'number' && isFinite(v)) { sum += v; count++; }
+    }
+    if (count > 0) {
+      const avg = sum / count;
+      onAggregateUpdate && onAggregateUpdate(avg);
+    }
+  };
+
+  // Recompute aggregate when obstacles list changes
+  useEffect(() => { recalcAggregate(); }, [obstacles]);
 
   // Pointer hover handling
   useEffect(() => {
@@ -108,11 +174,27 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles
 
       if (!calcRef.current) return;
       const cached = calcRef.current.getCachedCoverage(m);
-      if (cached) { setTooltip({ visible: true, text: `Shadow Coverage: ${cached.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${cached.percent}%` }); return; }
+      if (cached) {
+        (m.userData as any).shadowPercent = cached.percent;
+        const id = (m.userData && (m.userData as any).id) as string | undefined;
+        if (id) percentByIdRef.map.set(id, cached.percent as number);
+        setTooltip({ visible: true, text: `Shadow Coverage: ${cached.percent}%`, target: m });
+        onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${cached.percent}%` });
+        recalcAggregate();
+        return;
+      }
       setTooltip({ visible: true, text: 'Calculating…', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Calculating…' });
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(async () => {
-        try { const res = await calcRef.current!.computeCoverage(m); setTooltip({ visible: true, text: `Shadow Coverage: ${res.percent}%`, target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${res.percent}%` }); }
+        try {
+          const res = await calcRef.current!.computeCoverage(m);
+          (m.userData as any).shadowPercent = res.percent;
+          const id = (m.userData && (m.userData as any).id) as string | undefined;
+          if (id) percentByIdRef.map.set(id, res.percent as number);
+          setTooltip({ visible: true, text: `Shadow Coverage: ${res.percent}%`, target: m });
+          onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: `Shadow Coverage: ${res.percent}%` });
+          recalcAggregate();
+        }
         catch { setTooltip({ visible: true, text: 'Unavailable', target: m }); onHoverUpdate && onHoverUpdate({ visible: true, x: e.clientX, y: e.clientY, text: 'Unavailable' }); }
       });
     };
@@ -310,7 +392,7 @@ const Obstacles3D = ({ obstacles, baseHeight, shapes, onHoverUpdate }: Obstacles
             position={[obstacle.position.x, yPosition, obstacle.position.y]}
             rotation={[0, (obstacle.type === 'triangle' ? -obstacle.rotation : obstacle.rotation) * (Math.PI / 180), 0]}
           >
-            <mesh geometry={geometry} castShadow receiveShadow userData={{ type: obstacle.type === 'solarPanel' ? 'solarPanel' : 'obstacle' }}>
+            <mesh geometry={geometry} castShadow receiveShadow userData={{ type: obstacle.type === 'solarPanel' ? 'solarPanel' : 'obstacle', id: obstacle.id }}>
               <meshStandardMaterial 
                 color={obstacle.type === 'solarPanel' ? '#2c5596' : 'hsl(0, 84%, 60%)'}
                 transparent={false}
@@ -373,6 +455,7 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
   const [manualSunEnabled, setManualSunEnabled] = useState(false);
   const [manualSunPos, setManualSunPos] = useState<[number, number, number] | undefined>(undefined);
   const [playing, setPlaying] = useState(false);
+  const [aggregatePercent, setAggregatePercent] = useState<number>(0);
 
   // Keep minutes aligned to slider without drifting
   const [timeMinutes, setTimeMinutes] = useState(() => {
@@ -473,7 +556,7 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
             el.style.left = ((v.x || 0) + 12) + 'px';
             el.style.top = ((v.y || 0) + 12) + 'px';
             el.textContent = v.text || '';
-          }} />
+          }} onAggregateUpdate={(avg) => setAggregatePercent(avg)} invalidateKey={`${date.getTime()}|${manualSunEnabled ? (manualSunPos ? `${manualSunPos[0]},${manualSunPos[1]},${manualSunPos[2]}` : 'manual') : 'auto'}`} />
         </group>
 
         <Grid
@@ -499,6 +582,10 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
       </Canvas>
 
       <div id="shadow-coverage-tooltip" style={{ position: 'fixed', display: 'none', pointerEvents: 'none', background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '4px 6px', borderRadius: 4, fontSize: 12, zIndex: 1000 }} />
+
+      <div style={{ position: 'fixed', top: 12, right: 12, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '6px 10px', borderRadius: 6, fontSize: 13, zIndex: 1000 }}>
+        Overall Shadow Coverage: {aggregatePercent.toFixed(2)}%
+      </div>
 
       <SunControls
         latitude={latitude}
