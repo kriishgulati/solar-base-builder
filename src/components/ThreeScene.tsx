@@ -461,7 +461,7 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           </mesh>
         )}
 
-        <Environment preset="city" />
+        <Environment preset="city" environmentIntensity={0.2} />
 
         <group position={[-modelCenter[0], 0, -modelCenter[2]]}>
           <Building3D shapes={shapes} height={buildingHeight} />
