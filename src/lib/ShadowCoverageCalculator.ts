@@ -39,10 +39,25 @@ export class ShadowCoverageCalculator {
     };
 
     const size = this.options.rtSize;
+    // Feature-detect float render targets
+    const gl: WebGL2RenderingContext | WebGLRenderingContext = (this.renderer.getContext() as any);
+    let rtType: THREE.TextureDataType = THREE.UnsignedByteType;
+    const isWebGL2 = (gl as any).TEXTURE_BINDING_3D !== undefined;
+    if (isWebGL2) {
+      // Prefer full float if EXT_color_buffer_float is available; else try half float
+      const hasFloatRT = this.renderer.capabilities.isWebGL2 && (gl as WebGL2RenderingContext).getExtension('EXT_color_buffer_float');
+      const hasHalfFloatRT = this.renderer.capabilities.isWebGL2; // half float is core in WebGL2
+      if (hasFloatRT) rtType = THREE.FloatType; else if (hasHalfFloatRT) rtType = THREE.HalfFloatType;
+    } else {
+      // WebGL1 fallbacks
+      const halfExt = (gl as WebGLRenderingContext).getExtension('OES_texture_half_float');
+      const halfRT = (gl as WebGLRenderingContext).getExtension('EXT_color_buffer_half_float');
+      if (halfExt && halfRT) rtType = THREE.HalfFloatType; else rtType = THREE.UnsignedByteType;
+    }
     const params = {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
-      type: THREE.UnsignedByteType,
+      type: rtType,
       format: THREE.RGBAFormat,
       depthBuffer: false,
       stencilBuffer: false,
@@ -88,7 +103,8 @@ export class ShadowCoverageCalculator {
         uNear: { value: 0.1 },
         uFar: { value: 1000.0 },
         uTopNormal: { value: new THREE.Vector3(0, 1, 0) },
-        uThreshold: { value: 0.6 },
+        // Slightly stricter alignment to isolate the true top face
+        uThreshold: { value: 0.7 },
       },
       vertexShader: `
         varying float vDepth;
@@ -297,8 +313,9 @@ export class ShadowCoverageCalculator {
     // Read back
     const rtSize = this.options.rtSize;
     const numPx = rtSize * rtSize;
-    const bufferA = new Uint8Array(numPx * 4);
-    const bufferB = new Uint8Array(numPx * 4);
+    // Read float buffers for higher precision
+    const bufferA = new Float32Array(numPx * 4);
+    const bufferB = new Float32Array(numPx * 4);
     this.renderer.readRenderTargetPixels(this.panelRT, 0, 0, rtSize, rtSize, bufferA);
     this.renderer.readRenderTargetPixels(this.occluderRT, 0, 0, rtSize, rtSize, bufferB);
 
@@ -309,8 +326,10 @@ export class ShadowCoverageCalculator {
       const imgA = ctxA.createImageData(size, size);
       const imgB = ctxB.createImageData(size, size);
       for (let i = 0; i < numPx; i++) {
-        const vA = Math.min(255, Math.max(0, Math.floor(bufferA[i * 4] * 255)));
-        const vB = Math.min(255, Math.max(0, Math.floor(bufferB[i * 4] * 255)));
+        const fA = bufferA[i * 4];
+        const fB = bufferB[i * 4];
+        const vA = Math.min(255, Math.max(0, Math.floor(fA * 255)));
+        const vB = Math.min(255, Math.max(0, Math.floor(fB * 255)));
         imgA.data[i * 4 + 0] = vA; imgA.data[i * 4 + 1] = vA; imgA.data[i * 4 + 2] = vA; imgA.data[i * 4 + 3] = 255;
         imgB.data[i * 4 + 0] = vB; imgB.data[i * 4 + 1] = vB; imgB.data[i * 4 + 2] = vB; imgB.data[i * 4 + 3] = 255;
       }
@@ -325,16 +344,18 @@ export class ShadowCoverageCalculator {
     let total = 0;
     let shadowed = 0;
     for (let i = 0; i < numPx; i++) {
-      const pDepth = bufferA[i * 4 + 0] / 255;
+      const pDepth = bufferA[i * 4 + 0];
       // white clear = 1.0 means no draw
       if (pDepth >= 0.9999) continue; // panel not present at this texel
-      const oDepth = bufferB[i * 4 + 0] / 255;
+      const oDepth = bufferB[i * 4 + 0];
       total++;
       // If occluder depth exists and is closer (smaller normalized depth) than panel depth by epsilon -> shadowed
       if (oDepth <= (pDepth - eps)) shadowed++;
     }
     const percent = total > 0 ? Math.max(0, Math.min(100, (shadowed / total) * 100)) : 0;
-    const result: ShadowCoverageResult = { percent: Math.round(percent), totalPixels: total, shadowedPixels: shadowed, at: performance.now() };
+    // Two-decimal precision for display accuracy
+    const rounded = Math.round(percent * 100) / 100;
+    const result: ShadowCoverageResult = { percent: rounded, totalPixels: total, shadowedPixels: shadowed, at: performance.now() } as ShadowCoverageResult;
     this.cache.set(panel, result);
     return result;
   }
