@@ -1070,7 +1070,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         onTouchEnd={handleTouchEnd}
       />
 
-      {(selectedObstacleId || selectedObstacleIds.length > 0) && (
+      {selectedObstacleId && (
         <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur px-3 py-2 rounded-lg border text-sm">
           <div className="font-medium text-foreground">Selected Obstacle</div>
           <div className="text-xs text-muted-foreground">

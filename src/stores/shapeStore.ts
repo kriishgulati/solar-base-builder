@@ -25,6 +25,8 @@ export interface Obstacle {
   rotation: number;
   height: number; // obstacle's own height
   totalHeight: number; // baseHeight + height
+  facingAngle: number;
+  facing: "N" | "S" | "E" | "W";
 }
 
 interface ShapeStore {
@@ -134,6 +136,8 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
       ...obstacleData,
       position: pos,
       id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      facingAngle: obstacleData.facingAngle ?? 0,
+      facing: obstacleData.facing ?? "N",
     };
 
     set((state) => ({
