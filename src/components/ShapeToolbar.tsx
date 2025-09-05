@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { useShapeStore } from '@/stores/shapeStore';
-import { 
-  Square, 
-  RectangleHorizontal, 
-  Circle, 
-  Triangle, 
-  RotateCw, 
-  Trash2, 
-  Plus
-} from 'lucide-react';
-import { Copy } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { useShapeStore } from "@/stores/shapeStore";
+import {
+  Square,
+  RectangleHorizontal,
+  Circle,
+  Triangle,
+  RotateCw,
+  Trash2,
+  Plus,
+} from "lucide-react";
+import { Copy } from "lucide-react";
 
 export const ShapeToolbar = ({ isDragging = false }) => {
   const {
@@ -29,7 +29,12 @@ export const ShapeToolbar = ({ isDragging = false }) => {
     shapes,
     updateShape,
     selectShape,
-  copyShape,
+    copyShape,
+    selectedShapeIds,
+    createGroup,
+    groups,
+    getGroupIdForShape,
+    ungroup,
   } = useShapeStore();
 
   const [dimensions, setDimensions] = useState({
@@ -40,7 +45,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   const [rotation, setRotation] = useState(0);
 
   // Find the selected shape
-  const selectedShape = shapes.find(s => s.id === selectedShapeId);
+  const selectedShape = shapes.find((s) => s.id === selectedShapeId);
 
   // Sync local state with selected shape
   useEffect(() => {
@@ -61,15 +66,21 @@ export const ShapeToolbar = ({ isDragging = false }) => {
       // Preserve square aspect ratio: keep width equal to length for squares.
       let updatedDimensions: any = {};
 
-      if (selectedShape.type === 'square') {
-        updatedDimensions = { length: dimensions.length, width: dimensions.length };
-      } else if (selectedShape.type === 'circle') {
+      if (selectedShape.type === "square") {
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.length,
+        };
+      } else if (selectedShape.type === "circle") {
         updatedDimensions = { radius: dimensions.radius };
-      } else if (selectedShape.type === 'triangle') {
+      } else if (selectedShape.type === "triangle") {
         updatedDimensions = { length: dimensions.length };
       } else {
         // rectangle
-        updatedDimensions = { length: dimensions.length, width: dimensions.width };
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.width,
+        };
       }
 
       updateShape(selectedShape.id, {
@@ -82,40 +93,46 @@ export const ShapeToolbar = ({ isDragging = false }) => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dimensions.length, dimensions.width, dimensions.radius, rotation, isDragging]);
+  }, [
+    dimensions.length,
+    dimensions.width,
+    dimensions.radius,
+    rotation,
+    isDragging,
+  ]);
 
   const handleAddShape = () => {
     const basePosition = { x: 0, y: 0 }; // center of grid/screen
-    
+
     let shapeData;
     switch (activeShapeType) {
-      case 'rectangle':
+      case "rectangle":
         shapeData = {
-          type: 'rectangle' as const,
+          type: "rectangle" as const,
           dimensions: { length: dimensions.length, width: dimensions.width },
           position: basePosition,
           rotation,
         };
         break;
-      case 'square':
+      case "square":
         shapeData = {
-          type: 'square' as const,
+          type: "square" as const,
           dimensions: { length: dimensions.length },
           position: basePosition,
           rotation,
         };
         break;
-      case 'circle':
+      case "circle":
         shapeData = {
-          type: 'circle' as const,
+          type: "circle" as const,
           dimensions: { radius: dimensions.radius },
           position: basePosition,
           rotation,
         };
         break;
-      case 'triangle':
+      case "triangle":
         shapeData = {
-          type: 'triangle' as const,
+          type: "triangle" as const,
           dimensions: { length: dimensions.length },
           position: basePosition,
           rotation,
@@ -129,10 +146,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   };
 
   const shapeButtons = [
-    { type: 'rectangle', icon: RectangleHorizontal, label: 'Rectangle' },
-    { type: 'square', icon: Square, label: 'Square' },
-    { type: 'circle', icon: Circle, label: 'Circle' },
-    { type: 'triangle', icon: Triangle, label: 'Triangle' },
+    { type: "rectangle", icon: RectangleHorizontal, label: "Rectangle" },
+    { type: "square", icon: Square, label: "Square" },
+    { type: "circle", icon: Circle, label: "Circle" },
+    { type: "triangle", icon: Triangle, label: "Triangle" },
   ] as const;
 
   return (
@@ -148,7 +165,9 @@ export const ShapeToolbar = ({ isDragging = false }) => {
 
         {/* Shape Selection */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-foreground">Shape Type</Label>
+          <Label className="text-sm font-medium text-foreground">
+            Shape Type
+          </Label>
           <div className="grid grid-cols-2 gap-2">
             {shapeButtons.map(({ type, icon: Icon, label }) => (
               <Button
@@ -169,29 +188,45 @@ export const ShapeToolbar = ({ isDragging = false }) => {
 
         {/* Dimensions */}
         <div className="space-y-4">
-          <Label className="text-sm font-medium text-foreground">Dimensions (meters)</Label>
-          
-          {activeShapeType === 'circle' ? (
+          <Label className="text-sm font-medium text-foreground">
+            Dimensions (meters)
+          </Label>
+
+          {activeShapeType === "circle" ? (
             <div className="space-y-2">
-              <Label htmlFor="radius" className="text-xs text-muted-foreground">Radius</Label>
+              <Label htmlFor="radius" className="text-xs text-muted-foreground">
+                Radius
+              </Label>
               <Input
                 id="radius"
                 type="number"
                 value={dimensions.radius}
-                onChange={(e) => setDimensions(prev => ({ ...prev, radius: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setDimensions((prev) => ({
+                    ...prev,
+                    radius: Number(e.target.value),
+                  }))
+                }
                 className="h-9"
                 min="0.1"
                 step="0.1"
               />
             </div>
-          ) : activeShapeType === 'triangle' || activeShapeType === 'square' ? (
+          ) : activeShapeType === "triangle" || activeShapeType === "square" ? (
             <div className="space-y-2">
-              <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
+              <Label htmlFor="length" className="text-xs text-muted-foreground">
+                Length
+              </Label>
               <Input
                 id="length"
                 type="number"
                 value={dimensions.length}
-                onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setDimensions((prev) => ({
+                    ...prev,
+                    length: Number(e.target.value),
+                  }))
+                }
                 className="h-9"
                 min="0.1"
                 step="0.1"
@@ -200,24 +235,44 @@ export const ShapeToolbar = ({ isDragging = false }) => {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
+                <Label
+                  htmlFor="length"
+                  className="text-xs text-muted-foreground"
+                >
+                  Length
+                </Label>
                 <Input
                   id="length"
                   type="number"
                   value={dimensions.length}
-                  onChange={(e) => setDimensions(prev => ({ ...prev, length: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setDimensions((prev) => ({
+                      ...prev,
+                      length: Number(e.target.value),
+                    }))
+                  }
                   className="h-9"
                   min="0.1"
                   step="0.1"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="width" className="text-xs text-muted-foreground">Width</Label>
+                <Label
+                  htmlFor="width"
+                  className="text-xs text-muted-foreground"
+                >
+                  Width
+                </Label>
                 <Input
                   id="width"
                   type="number"
                   value={dimensions.width}
-                  onChange={(e) => setDimensions(prev => ({ ...prev, width: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setDimensions((prev) => ({
+                      ...prev,
+                      width: Number(e.target.value),
+                    }))
+                  }
                   className="h-9"
                   min="0.1"
                   step="0.1"
@@ -228,7 +283,9 @@ export const ShapeToolbar = ({ isDragging = false }) => {
 
           {/* Rotation */}
           <div className="space-y-2">
-            <Label htmlFor="rotation" className="text-xs text-muted-foreground">Rotation (degrees)</Label>
+            <Label htmlFor="rotation" className="text-xs text-muted-foreground">
+              Rotation (degrees)
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="rotation"
@@ -240,7 +297,11 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 max="360"
                 step="1"
               />
-              <Button variant="outline" size="sm" onClick={() => setRotation((prev) => (prev + 90) % 360)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRotation((prev) => (prev + 90) % 360)}
+              >
                 <RotateCw size={16} />
               </Button>
             </div>
@@ -251,33 +312,80 @@ export const ShapeToolbar = ({ isDragging = false }) => {
 
         {/* Actions */}
         <div className="space-y-3">
-          <Button onClick={handleAddShape} className="w-full bg-primary hover:bg-primary/90" size="sm">
+          <Button
+            onClick={handleAddShape}
+            className="w-full bg-primary hover:bg-primary/90"
+            size="sm"
+          >
             <Plus size={16} className="mr-2" />
             Add Shape
           </Button>
 
           {selectedShape && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => copyShape(selectedShape.id)} className="flex-1" size="sm">
+              <Button
+                variant="outline"
+                onClick={() => copyShape(selectedShape.id)}
+                className="flex-1"
+                size="sm"
+              >
                 <Copy size={16} className="mr-2" />
                 Copy Shape
               </Button>
-              <Button variant="ghost" onClick={() => selectShape(null)} size="sm">
+              <Button
+                variant="ghost"
+                onClick={() => selectShape(null)}
+                size="sm"
+              >
                 <Trash2 size={16} />
               </Button>
             </div>
           )}
 
+          {/* Group / Ungroup */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={(selectedShapeIds?.length || 0) < 2}
+              onClick={() => {
+                if ((selectedShapeIds?.length || 0) >= 2) {
+                  createGroup(selectedShapeIds);
+                }
+              }}
+              className="flex-1"
+            >
+              Group Shapes
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={
+                !selectedShapeId || !getGroupIdForShape(selectedShapeId)
+              }
+              onClick={() => {
+                if (selectedShapeId) {
+                  const gid = getGroupIdForShape(selectedShapeId);
+                  if (gid) ungroup(gid);
+                }
+              }}
+              className="flex-1"
+            >
+              Ungroup
+            </Button>
+          </div>
+
           {/* Shape Merge Toggle */}
           <div className="flex items-center justify-between py-2">
-            <Label htmlFor="merge-toggle" className="text-sm text-foreground">Connect Shapes</Label>
+            <Label htmlFor="merge-toggle" className="text-sm text-foreground">
+              Connect Shapes
+            </Label>
             <Switch
               id="merge-toggle"
               checked={shapeMergeEnabled}
               onCheckedChange={setShapeMergeEnabled}
             />
           </div>
-
         </div>
 
         <Separator />
@@ -285,14 +393,23 @@ export const ShapeToolbar = ({ isDragging = false }) => {
         {/* Merge Mode Indicator */}
         {shapeMergeEnabled && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-sm font-medium text-green-800">Connection Mode Active</div>
-            <div className="text-xs text-green-600">Click two shapes to connect them</div>
+            <div className="text-sm font-medium text-green-800">
+              Connection Mode Active
+            </div>
+            <div className="text-xs text-green-600">
+              Click two shapes to connect them
+            </div>
           </div>
         )}
 
         {/* Utility Actions */}
         <div className="space-y-2">
-          <Button variant="outline" onClick={clearCanvas} className="w-full" size="sm">
+          <Button
+            variant="outline"
+            onClick={clearCanvas}
+            className="w-full"
+            size="sm"
+          >
             <Trash2 size={16} className="mr-2" />
             Clear Canvas
           </Button>

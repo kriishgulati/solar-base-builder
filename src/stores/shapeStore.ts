@@ -1,8 +1,8 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 export interface Shape {
   id: string;
-  type: 'rectangle' | 'square' | 'circle' | 'triangle' | 'solarPanel';
+  type: "rectangle" | "square" | "circle" | "triangle" | "solarPanel";
   dimensions: {
     length?: number;
     width?: number;
@@ -19,20 +19,26 @@ export interface Shape {
 
 export interface Obstacle {
   id: string;
-  type: Shape['type'];
-  dimensions: Shape['dimensions'];
-  position: Shape['position'];
+  type: Shape["type"];
+  dimensions: Shape["dimensions"];
+  position: Shape["position"];
   rotation: number;
-  height: number;         // obstacle's own height
-  totalHeight: number;    // baseHeight + height
+  height: number; // obstacle's own height
+  totalHeight: number; // baseHeight + height
 }
 
 interface ShapeStore {
   shapes: Shape[];
   obstacles: Obstacle[];
   selectedShapeId: string | null;
+  selectedShapeIds: string[];
   selectedObstacleId: string | null;
-  activeShapeType: 'rectangle' | 'square' | 'circle' | 'triangle' | 'solarPanel';
+  activeShapeType:
+    | "rectangle"
+    | "square"
+    | "circle"
+    | "triangle"
+    | "solarPanel";
   canvasScale: number;
   canvasOffset: { x: number; y: number };
   // grid & zoom config
@@ -43,22 +49,33 @@ interface ShapeStore {
   shapeMergeEnabled: boolean;
   obstacleMode: boolean;
   baseHeight: number;
-  
+  groups: { id: string; memberIds: string[] }[];
+  obstacleGroups: { id: string; memberIds: string[] }[];
+
   // Actions
-  addShape: (shape: Omit<Shape, 'id' | 'connectedTo' | 'merged'>) => void;
-  addObstacle: (obstacle: Omit<Obstacle, 'id'>) => void;
+  addShape: (shape: Omit<Shape, "id" | "connectedTo" | "merged">) => void;
+  addObstacle: (obstacle: Omit<Obstacle, "id">) => void;
   updateShape: (id: string, updates: Partial<Shape>) => void;
   updateObstacle: (id: string, updates: Partial<Obstacle>) => void;
   deleteShape: (id: string) => void;
   deleteObstacle: (id: string) => void;
   selectShape: (id: string | null) => void;
+  selectOnlyShape: (id: string | null) => void;
+  toggleSelectShape: (id: string) => void;
+  clearShapeSelection: () => void;
   selectObstacle: (id: string | null) => void;
-  setActiveShapeType: (type: Shape['type']) => void;
+  setActiveShapeType: (type: Shape["type"]) => void;
   setCanvasScale: (scale: number) => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setShapeMergeEnabled: (enabled: boolean) => void;
   setObstacleMode: (enabled: boolean) => void;
   mergeShapes: (shapeIds: string[]) => void;
+  createGroup: (shapeIds: string[]) => string | null;
+  ungroup: (groupId: string) => void;
+  getGroupIdForShape: (shapeId: string) => string | null;
+  createObstacleGroup: (obstacleIds: string[]) => string | null;
+  ungroupObstacleGroup: (groupId: string) => void;
+  getGroupIdForObstacle: (obstacleId: string) => string | null;
   clearCanvas: () => void;
   clearObstacles: () => void;
   copyShape: (id: string) => void;
@@ -76,8 +93,9 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   shapes: [],
   obstacles: [],
   selectedShapeId: null,
+  selectedShapeIds: [],
   selectedObstacleId: null,
-  activeShapeType: 'rectangle',
+  activeShapeType: "rectangle",
   canvasScale: 1,
   canvasOffset: { x: 0, y: 0 },
   shapeMergeEnabled: false,
@@ -88,6 +106,8 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   zoomStep: 1.2,
   minScale: 0.1,
   maxScale: 5,
+  groups: [],
+  obstacleGroups: [],
 
   addShape: (shapeData) => {
     // snap incoming position to grid so corners align with grid lines
@@ -103,6 +123,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     set((state) => ({
       shapes: [...state.shapes, newShape],
       selectedShapeId: newShape.id,
+      selectedShapeIds: [newShape.id],
     }));
   },
 
@@ -140,19 +161,56 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   deleteShape: (id) => {
     set((state) => ({
       shapes: state.shapes.filter((shape) => shape.id !== id),
-      selectedShapeId: state.selectedShapeId === id ? null : state.selectedShapeId,
+      selectedShapeId:
+        state.selectedShapeId === id ? null : state.selectedShapeId,
+      selectedShapeIds: state.selectedShapeIds.filter((sid) => sid !== id),
+      groups: state.groups
+        .map((g) => ({
+          ...g,
+          memberIds: g.memberIds.filter((mid) => mid !== id),
+        }))
+        .filter((g) => g.memberIds.length > 1),
     }));
   },
 
   deleteObstacle: (id) => {
     set((state) => ({
       obstacles: state.obstacles.filter((obstacle) => obstacle.id !== id),
-      selectedObstacleId: state.selectedObstacleId === id ? null : state.selectedObstacleId,
+      selectedObstacleId:
+        state.selectedObstacleId === id ? null : state.selectedObstacleId,
+      obstacleGroups: state.obstacleGroups
+        .map((g) => ({
+          ...g,
+          memberIds: g.memberIds.filter((mid) => mid !== id),
+        }))
+        .filter((g) => g.memberIds.length > 1),
     }));
   },
 
   selectShape: (id) => {
+    // keep legacy single select, but do not alter multi-select list
     set({ selectedShapeId: id });
+  },
+
+  selectOnlyShape: (id) => {
+    set({ selectedShapeId: id, selectedShapeIds: id ? [id] : [] });
+  },
+
+  toggleSelectShape: (id) => {
+    set((state) => {
+      const exists = state.selectedShapeIds.includes(id);
+      const next = exists
+        ? state.selectedShapeIds.filter((sid) => sid !== id)
+        : [...state.selectedShapeIds, id];
+      return {
+        selectedShapeIds: next,
+        selectedShapeId: next.length === 1 ? next[0] : state.selectedShapeId,
+      };
+    });
+  },
+
+  clearShapeSelection: () => {
+    set({ selectedShapeId: null, selectedShapeIds: [] });
   },
 
   selectObstacle: (id) => {
@@ -181,28 +239,78 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   mergeShapes: (shapeIds) => {
     set((state) => {
-      const shapesToMerge = state.shapes.filter(shape => shapeIds.includes(shape.id));
-      const otherShapes = state.shapes.filter(shape => !shapeIds.includes(shape.id));
-      
+      const shapesToMerge = state.shapes.filter((shape) =>
+        shapeIds.includes(shape.id)
+      );
+      const otherShapes = state.shapes.filter(
+        (shape) => !shapeIds.includes(shape.id)
+      );
+
       if (shapesToMerge.length < 2) return state;
-      
+
       // Mark shapes as connected
-      const mergedShapes = shapesToMerge.map(shape => ({
+      const mergedShapes = shapesToMerge.map((shape) => ({
         ...shape,
-        connectedTo: shapeIds.filter(id => id !== shape.id),
-        merged: true
+        connectedTo: shapeIds.filter((id) => id !== shape.id),
+        merged: true,
       }));
-      
+
       return {
-        shapes: [...otherShapes, ...mergedShapes]
+        shapes: [...otherShapes, ...mergedShapes],
       };
     });
+  },
+
+  createGroup: (shapeIds) => {
+    const unique = Array.from(new Set(shapeIds)).filter(Boolean);
+    if (unique.length < 2) return null;
+    const id = `group_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    set((state) => ({
+      groups: [...state.groups, { id, memberIds: unique }],
+    }));
+    return id;
+  },
+
+  ungroup: (groupId) => {
+    set((state) => ({
+      groups: state.groups.filter((g) => g.id !== groupId),
+    }));
+  },
+
+  getGroupIdForShape: (shapeId) => {
+    const { groups } = get();
+    const g = groups.find((grp) => grp.memberIds.includes(shapeId));
+    return g ? g.id : null;
+  },
+
+  createObstacleGroup: (obstacleIds) => {
+    const unique = Array.from(new Set(obstacleIds)).filter(Boolean);
+    if (unique.length < 2) return null;
+    const id = `ogrp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    set((state) => ({
+      obstacleGroups: [...state.obstacleGroups, { id, memberIds: unique }],
+    }));
+    return id;
+  },
+
+  ungroupObstacleGroup: (groupId) => {
+    set((state) => ({
+      obstacleGroups: state.obstacleGroups.filter((g) => g.id !== groupId),
+    }));
+  },
+
+  getGroupIdForObstacle: (obstacleId) => {
+    const { obstacleGroups } = get();
+    const g = obstacleGroups.find((grp) => grp.memberIds.includes(obstacleId));
+    return g ? g.id : null;
   },
 
   clearCanvas: () => {
     set({
       shapes: [],
       selectedShapeId: null,
+      selectedShapeIds: [],
+      groups: [],
     });
   },
 
@@ -216,7 +324,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   // Copy actions: duplicate shape or obstacle with new id and slight offset
   copyShape: (id: string) => {
     const state = get();
-    const shape = state.shapes.find(s => s.id === id);
+    const shape = state.shapes.find((s) => s.id === id);
     if (!shape) return;
     const offset = { x: shape.position.x + 1, y: shape.position.y + 1 };
     const snapped = get().snapToGrid(offset);
@@ -232,7 +340,7 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   copyObstacle: (id: string) => {
     const state = get();
-    const obs = state.obstacles.find(o => o.id === id);
+    const obs = state.obstacles.find((o) => o.id === id);
     if (!obs) return;
     const offset = { x: obs.position.x + 1, y: obs.position.y + 1 };
     const snapped = get().snapToGrid(offset);
@@ -241,7 +349,10 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
       id: `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       position: snapped,
     };
-    set({ obstacles: [...state.obstacles, newObs], selectedObstacleId: newObs.id });
+    set({
+      obstacles: [...state.obstacles, newObs],
+      selectedObstacleId: newObs.id,
+    });
   },
 
   setBaseHeight: (height: number) => set({ baseHeight: height }),
@@ -264,7 +375,9 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
 
   recenterOnSelectedObstacle: () => {
     const state = get();
-    const sel = state.selectedObstacleId ? state.obstacles.find(o => o.id === state.selectedObstacleId) : null;
+    const sel = state.selectedObstacleId
+      ? state.obstacles.find((o) => o.id === state.selectedObstacleId)
+      : null;
     if (!sel) {
       set({ canvasOffset: { x: 0, y: 0 } });
       return;
