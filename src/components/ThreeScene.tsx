@@ -4,7 +4,7 @@ import { OrbitControls, Grid, Environment, TransformControls, Html } from '@reac
 import ShadowCoverageCalculator from '@/lib/ShadowCoverageCalculator';
 import SunControls from './SunControls';
 import * as THREE from 'three';
-import { Shape, Obstacle, } from '@/stores/shapeStore';
+import { Shape, Obstacle } from '@/stores/shapeStore';
 import { useShapeStore } from '@/stores/shapeStore';
 import SunCalc from "suncalc";
 

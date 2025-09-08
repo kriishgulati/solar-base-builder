@@ -18,7 +18,7 @@ export interface Shape {
 }
 
 export type Facing = "N" | "S" | "E" | "W" | "NE" | "NW" | "SE" | "SW";
-
+export type Facing = "N" | "S" | "E" | "W" | "NE" | "NW" | "SE" | "SW";
 export interface Obstacle {
   id: string;
   type: Shape["type"];
@@ -28,6 +28,7 @@ export interface Obstacle {
   height: number; // obstacle's own height
   totalHeight: number; // baseHeight + height
   facingAngle: number;
+  facing: Facing;
   facing: Facing;
 }
 
@@ -56,6 +57,11 @@ interface ShapeStore {
   // Base-level compass orientation
   baseFacingAngle: number; // degrees, 0 at North, clockwise positive
   baseFacing: Facing;
+  obstacleMode: boolean;
+  baseHeight: number;
+  // Base-level compass orientation
+  baseFacingAngle: number; // degrees, 0 at North, clockwise positive
+  baseFacing: Facing;
   groups: { id: string; memberIds: string[] }[];
   obstacleGroups: { id: string; memberIds: string[] }[];
 
@@ -77,6 +83,10 @@ interface ShapeStore {
   setShapeMergeEnabled: (enabled: boolean) => void;
   setObstacleMode: (enabled: boolean) => void;
   setBaseFacing: (angle: number, label: Facing) => void;
+  mergeShapes: (shapeIds: string[]) => void;
+  setObstacleMode: (enabled: boolean) => void;
+  setBaseFacing: (angle: number, label: Facing) => void;
+  setShapeMergeEnabled: (enabled: boolean) => void;
   mergeShapes: (shapeIds: string[]) => void;
   createGroup: (shapeIds: string[]) => string | null;
   ungroup: (groupId: string) => void;
@@ -106,6 +116,11 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   activeShapeType: "rectangle",
   canvasScale: 1,
   canvasOffset: { x: 0, y: 0 },
+  shapeMergeEnabled: false,
+  obstacleMode: false,
+  baseHeight: 3, // Default height
+  baseFacingAngle: 0,
+  baseFacing: "N",
   shapeMergeEnabled: false,
   obstacleMode: false,
   baseHeight: 3, // Default height
@@ -244,7 +259,9 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   setShapeMergeEnabled: (enabled) => {
     set({ shapeMergeEnabled: enabled });
   },
-
+  setShapeMergeEnabled: (enabled) => {
+    set({ shapeMergeEnabled: enabled });
+  },
   setObstacleMode: (enabled) => {
     set({ obstacleMode: enabled });
   },
