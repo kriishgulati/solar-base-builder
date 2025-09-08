@@ -798,7 +798,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   // Touch event handlers for mobile devices
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
+    //Default(); // Prevent default touch behavior
     const canvas = canvasRef.current;
     if (!canvas) return;
 

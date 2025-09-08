@@ -690,7 +690,7 @@ export const SimpleCanvas = ({
 
   // Touch event handlers for mobile devices
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
+    // e.preventDefault(); // Prevent default touch behavior
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -797,7 +797,7 @@ export const SimpleCanvas = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
+    //e.preventDefault(); // Prevent default touch behavior
     if (!isDragging || !dragShape) return;
 
     const canvas = canvasRef.current;
@@ -840,7 +840,7 @@ export const SimpleCanvas = ({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
+    //e.preventDefault(); // Prevent default touch behavior
     setIsDragging(false);
     setDragShape(null);
     setGuidelines([]);
