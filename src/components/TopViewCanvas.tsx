@@ -2,6 +2,7 @@ const PIXELS_PER_METER = 50;
 
 import { useRef, useEffect, useState } from "react";
 import { useShapeStore, Shape, Obstacle } from "@/stores/shapeStore";
+import { CompassWidget } from "@/components/CompassWidget";
 
 interface TopViewCanvasProps {
   shapes: Shape[];
@@ -11,6 +12,11 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState(1);
   const [centerCoords, setCenterCoords] = useState({ x: 0, y: 0 });
+  // Local compass state so dial is interactive even without a selection
+  const [compassAngle, setCompassAngle] = useState<number>(0);
+  const [compassLabel, setCompassLabel] = useState<
+    "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW"
+  >("N");
 
   const [isDragging, setIsDragging] = useState(false);
   const [draggedObstacle, setDraggedObstacle] = useState<string | null>(null);
@@ -1069,6 +1075,21 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       />
+
+      {/* Compass overlay (top-right), visible in obstacle editor */}
+      <div className="absolute top-4 right-4 z-20">
+        <CompassWidget
+          valueAngle={(obstacles.find((o) => o.id === selectedObstacleId)?.facingAngle) ?? compassAngle}
+          valueLabel={(obstacles.find((o) => o.id === selectedObstacleId)?.facing) ?? compassLabel}
+          onChange={({ angle, label }) => {
+            setCompassAngle(angle);
+            setCompassLabel(label);
+            if (selectedObstacleId) {
+              updateObstacle(selectedObstacleId, { facingAngle: angle, facing: label });
+            }
+          }}
+        />
+      </div>
 
       {selectedObstacleId && (
         <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur px-3 py-2 rounded-lg border text-sm">
