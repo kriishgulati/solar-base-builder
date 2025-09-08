@@ -21,8 +21,6 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   const {
     activeShapeType,
     setActiveShapeType,
-    shapeMergeEnabled,
-    setShapeMergeEnabled,
     addShape,
     clearCanvas,
     selectedShapeId,
@@ -375,32 +373,12 @@ export const ShapeToolbar = ({ isDragging = false }) => {
             </Button>
           </div>
 
-          {/* Shape Merge Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="merge-toggle" className="text-sm text-foreground">
-              Connect Shapes
-            </Label>
-            <Switch
-              id="merge-toggle"
-              checked={shapeMergeEnabled}
-              onCheckedChange={setShapeMergeEnabled}
-            />
-          </div>
+          {/* Connect/Merge removed */}
         </div>
 
         <Separator />
 
-        {/* Merge Mode Indicator */}
-        {shapeMergeEnabled && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-sm font-medium text-green-800">
-              Connection Mode Active
-            </div>
-            <div className="text-xs text-green-600">
-              Click two shapes to connect them
-            </div>
-          </div>
-        )}
+        {/* Connect/Merge indicator removed */}
 
         {/* Utility Actions */}
         <div className="space-y-2">

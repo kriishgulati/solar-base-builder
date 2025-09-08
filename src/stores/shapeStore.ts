@@ -48,7 +48,6 @@ interface ShapeStore {
   zoomStep: number;
   minScale: number;
   maxScale: number;
-  shapeMergeEnabled: boolean;
   obstacleMode: boolean;
   baseHeight: number;
   groups: { id: string; memberIds: string[] }[];
@@ -69,9 +68,7 @@ interface ShapeStore {
   setActiveShapeType: (type: Shape["type"]) => void;
   setCanvasScale: (scale: number) => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
-  setShapeMergeEnabled: (enabled: boolean) => void;
   setObstacleMode: (enabled: boolean) => void;
-  mergeShapes: (shapeIds: string[]) => void;
   createGroup: (shapeIds: string[]) => string | null;
   ungroup: (groupId: string) => void;
   getGroupIdForShape: (shapeId: string) => string | null;
@@ -100,7 +97,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   activeShapeType: "rectangle",
   canvasScale: 1,
   canvasOffset: { x: 0, y: 0 },
-  shapeMergeEnabled: false,
   obstacleMode: false,
   baseHeight: 3, // Default height
   // grid & zoom defaults
@@ -233,36 +229,8 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     set({ canvasOffset: offset });
   },
 
-  setShapeMergeEnabled: (enabled) => {
-    set({ shapeMergeEnabled: enabled });
-  },
-
   setObstacleMode: (enabled) => {
     set({ obstacleMode: enabled });
-  },
-
-  mergeShapes: (shapeIds) => {
-    set((state) => {
-      const shapesToMerge = state.shapes.filter((shape) =>
-        shapeIds.includes(shape.id)
-      );
-      const otherShapes = state.shapes.filter(
-        (shape) => !shapeIds.includes(shape.id)
-      );
-
-      if (shapesToMerge.length < 2) return state;
-
-      // Mark shapes as connected
-      const mergedShapes = shapesToMerge.map((shape) => ({
-        ...shape,
-        connectedTo: shapeIds.filter((id) => id !== shape.id),
-        merged: true,
-      }));
-
-      return {
-        shapes: [...otherShapes, ...mergedShapes],
-      };
-    });
   },
 
   createGroup: (shapeIds) => {

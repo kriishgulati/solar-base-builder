@@ -61,7 +61,6 @@ export const SimpleCanvas = ({
     setCanvasScale,
     canvasOffset,
     setCanvasOffset,
-    shapeMergeEnabled,
     createGroup,
     ungroup,
     getGroupIdForShape,
@@ -120,32 +119,7 @@ export const SimpleCanvas = ({
 
     ctx.globalAlpha = 1;
 
-    // Draw connection lines (center-to-center)
-    shapes.forEach((shape) => {
-      shape.connectedTo.forEach((connectedId) => {
-        const connectedShape = shapes.find((s) => s.id === connectedId);
-        if (!connectedShape) return;
-
-        ctx.strokeStyle = "hsl(142 76% 55%)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-
-        const startX =
-          centerX + shape.position.x * PIXELS_PER_METER * canvasScale;
-        const startY =
-          centerY + shape.position.y * PIXELS_PER_METER * canvasScale;
-        const endX =
-          centerX + connectedShape.position.x * PIXELS_PER_METER * canvasScale;
-        const endY =
-          centerY + connectedShape.position.y * PIXELS_PER_METER * canvasScale;
-
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      });
-    });
+    // (Removed) connection lines
 
     // Draw shapes
     shapes.forEach((shape) => {
@@ -573,11 +547,7 @@ export const SimpleCanvas = ({
         return;
       }
 
-      if (shapeMergeEnabled && selectedShapeId && selectedShapeId !== shapeId) {
-        const { mergeShapes } = useShapeStore.getState();
-        mergeShapes([selectedShapeId, shapeId]);
-        selectShape(null);
-      } else {
+      {
         if (e.shiftKey || multiSelectMode) {
           toggleSelectShape(shapeId);
         } else {
@@ -734,11 +704,7 @@ export const SimpleCanvas = ({
         return;
       }
 
-      if (shapeMergeEnabled && selectedShapeId && selectedShapeId !== shapeId) {
-        const { mergeShapes } = useShapeStore.getState();
-        mergeShapes([selectedShapeId, shapeId]);
-        selectShape(null);
-      } else {
+      {
         if (multiSelectMode) {
           toggleSelectShape(shapeId);
         } else {
