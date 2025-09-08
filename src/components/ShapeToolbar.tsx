@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useShapeStore } from "@/stores/shapeStore";
 import {
@@ -21,8 +20,6 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   const {
     activeShapeType,
     setActiveShapeType,
-    shapeMergeEnabled,
-    setShapeMergeEnabled,
     addShape,
     clearCanvas,
     selectedShapeId,
@@ -44,7 +41,6 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   });
   const [rotation, setRotation] = useState(0);
 
-  // Find the selected shape
   const selectedShape = shapes.find((s) => s.id === selectedShapeId);
 
   // Sync local state with selected shape
@@ -60,27 +56,19 @@ export const ShapeToolbar = ({ isDragging = false }) => {
     }
   }, [selectedShapeId]);
 
-  // Update shape in real time when dimensions or rotation change
+  // Update shape in real time
   useEffect(() => {
     if (selectedShape && !isDragging) {
-      // Preserve square aspect ratio: keep width equal to length for squares.
       let updatedDimensions: any = {};
 
       if (selectedShape.type === "square") {
-        updatedDimensions = {
-          length: dimensions.length,
-          width: dimensions.length,
-        };
+        updatedDimensions = { length: dimensions.length, width: dimensions.length };
       } else if (selectedShape.type === "circle") {
         updatedDimensions = { radius: dimensions.radius };
       } else if (selectedShape.type === "triangle") {
         updatedDimensions = { length: dimensions.length };
       } else {
-        // rectangle
-        updatedDimensions = {
-          length: dimensions.length,
-          width: dimensions.width,
-        };
+        updatedDimensions = { length: dimensions.length, width: dimensions.width };
       }
 
       updateShape(selectedShape.id, {
@@ -92,7 +80,6 @@ export const ShapeToolbar = ({ isDragging = false }) => {
         rotation,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     dimensions.length,
     dimensions.width,
@@ -102,7 +89,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
   ]);
 
   const handleAddShape = () => {
-    const basePosition = { x: 0, y: 0 }; // center of grid/screen
+    const basePosition = { x: 0, y: 0 };
 
     let shapeData;
     switch (activeShapeType) {
@@ -202,10 +189,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 type="number"
                 value={dimensions.radius}
                 onChange={(e) =>
-                  setDimensions((prev) => ({
-                    ...prev,
-                    radius: Number(e.target.value),
-                  }))
+                  setDimensions((prev) => ({ ...prev, radius: Number(e.target.value) }))
                 }
                 className="h-9"
                 min="0.1"
@@ -222,10 +206,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 type="number"
                 value={dimensions.length}
                 onChange={(e) =>
-                  setDimensions((prev) => ({
-                    ...prev,
-                    length: Number(e.target.value),
-                  }))
+                  setDimensions((prev) => ({ ...prev, length: Number(e.target.value) }))
                 }
                 className="h-9"
                 min="0.1"
@@ -235,10 +216,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label
-                  htmlFor="length"
-                  className="text-xs text-muted-foreground"
-                >
+                <Label htmlFor="length" className="text-xs text-muted-foreground">
                   Length
                 </Label>
                 <Input
@@ -246,10 +224,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                   type="number"
                   value={dimensions.length}
                   onChange={(e) =>
-                    setDimensions((prev) => ({
-                      ...prev,
-                      length: Number(e.target.value),
-                    }))
+                    setDimensions((prev) => ({ ...prev, length: Number(e.target.value) }))
                   }
                   className="h-9"
                   min="0.1"
@@ -257,10 +232,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label
-                  htmlFor="width"
-                  className="text-xs text-muted-foreground"
-                >
+                <Label htmlFor="width" className="text-xs text-muted-foreground">
                   Width
                 </Label>
                 <Input
@@ -268,10 +240,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                   type="number"
                   value={dimensions.width}
                   onChange={(e) =>
-                    setDimensions((prev) => ({
-                      ...prev,
-                      width: Number(e.target.value),
-                    }))
+                    setDimensions((prev) => ({ ...prev, width: Number(e.target.value) }))
                   }
                   className="h-9"
                   min="0.1"
@@ -360,9 +329,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
             <Button
               variant="outline"
               size="sm"
-              disabled={
-                !selectedShapeId || !getGroupIdForShape(selectedShapeId)
-              }
+              disabled={!selectedShapeId || !getGroupIdForShape(selectedShapeId)}
               onClick={() => {
                 if (selectedShapeId) {
                   const gid = getGroupIdForShape(selectedShapeId);
@@ -375,44 +342,18 @@ export const ShapeToolbar = ({ isDragging = false }) => {
             </Button>
           </div>
 
-          {/* Shape Merge Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="merge-toggle" className="text-sm text-foreground">
-              Connect Shapes
-            </Label>
-            <Switch
-              id="merge-toggle"
-              checked={shapeMergeEnabled}
-              onCheckedChange={setShapeMergeEnabled}
-            />
+          {/* Clear Canvas */}
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              onClick={clearCanvas}
+              className="w-full"
+              size="sm"
+            >
+              <Trash2 size={16} className="mr-2" />
+              Clear Canvas
+            </Button>
           </div>
-        </div>
-
-        <Separator />
-
-        {/* Merge Mode Indicator */}
-        {shapeMergeEnabled && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-sm font-medium text-green-800">
-              Connection Mode Active
-            </div>
-            <div className="text-xs text-green-600">
-              Click two shapes to connect them
-            </div>
-          </div>
-        )}
-
-        {/* Utility Actions */}
-        <div className="space-y-2">
-          <Button
-            variant="outline"
-            onClick={clearCanvas}
-            className="w-full"
-            size="sm"
-          >
-            <Trash2 size={16} className="mr-2" />
-            Clear Canvas
-          </Button>
         </div>
       </div>
     </Card>
