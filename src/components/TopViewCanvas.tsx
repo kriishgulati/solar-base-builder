@@ -60,6 +60,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     setCanvasOffset,
     obstacleMode,
     createObstacleGroup,
+    ungroupObstacleGroup,
     getGroupIdForObstacle,
   } = useShapeStore();
 
@@ -798,7 +799,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   // Touch event handlers for mobile devices
   const handleTouchStart = (e: React.TouchEvent) => {
-    //Default(); // Prevent default touch behavior
+    e.preventDefault(); // Prevent default touch behavior
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1095,6 +1096,39 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
           }}
         >
           Group Shapes
+        </button>
+        <button
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/90 h-9 px-4 py-2"
+          disabled={(() => {
+            // Disable when no selected obstacles belong to a group
+            const groupIds = Array.from(
+              new Set(
+                selectedObstacleIds
+                  .map((id) => getGroupIdForObstacle(id))
+                  .filter((g): g is string => Boolean(g))
+              )
+            );
+            return groupIds.length === 0;
+          })()}
+          onClick={() => {
+            const groupIds = Array.from(
+              new Set(
+                selectedObstacleIds
+                  .map((id) => getGroupIdForObstacle(id))
+                  .filter((g): g is string => Boolean(g))
+              )
+            );
+            groupIds.forEach((gid) => ungroupObstacleGroup(gid));
+            // Exit multi-select so dragging no longer moves all selected obstacles
+            setMultiSelectMode(false);
+            if (selectedObstacleIds.length > 0) {
+              const keep = selectedObstacleIds[0];
+              setSelectedObstacleIds([keep]);
+              selectObstacle(keep);
+            }
+          }}
+        >
+          Ungroup Shapes
         </button>
       </div>
     </div>
