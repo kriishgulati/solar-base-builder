@@ -805,7 +805,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
 
   // Touch event handlers for mobile devices
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -917,7 +916,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
     if (!isDragging || !draggedObstacle) return;
 
     const canvas = canvasRef.current;
@@ -993,7 +991,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    e.preventDefault(); // Prevent default touch behavior
     setIsDragging(false);
     setDraggedObstacle(null);
     setGuidelines([]);
@@ -1021,11 +1018,28 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     }
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    setCanvasScale(canvasScale * scaleFactor);
-  };
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const onWheel = (ev: WheelEvent) => {
+      // Only block page scroll while over the canvas
+      ev.preventDefault();
+      const { canvasScale, setCanvasScale } = useShapeStore.getState();
+      const scaleFactor = ev.deltaY > 0 ? 0.9 : 1.1;
+      setCanvasScale(canvasScale * scaleFactor);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, []);
+  // const handleWheel = (e: React.WheelEvent) => {
+  //   e.preventDefault();
+  //   const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  //   setCanvasScale(canvasScale * scaleFactor);
+  // };
 
   useEffect(() => {
     drawShapes();
@@ -1071,7 +1085,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
+        // onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
