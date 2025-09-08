@@ -26,7 +26,7 @@ export interface Obstacle {
   height: number; // obstacle's own height
   totalHeight: number; // baseHeight + height
   facingAngle: number;
-  facing: "N" | "S" | "E" | "W";
+  facing: "N" | "S" | "E" | "W" | "NE" | "NW" | "SE" | "SW";
 }
 
 interface ShapeStore {
