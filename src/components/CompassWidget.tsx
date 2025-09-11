@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+/* eslint-disable react/no-inline-styles */
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
-type Facing = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+type Facing = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
 export interface CompassWidgetProps {
   valueAngle?: number; // 0=N clockwise
@@ -11,14 +12,14 @@ export interface CompassWidgetProps {
 }
 
 const ticks: { angle: number; label: Facing }[] = [
-  { angle: 0, label: 'N' },
-  { angle: 45, label: 'NE' },
-  { angle: 90, label: 'E' },
-  { angle: 135, label: 'SE' },
-  { angle: 180, label: 'S' },
-  { angle: 225, label: 'SW' },
-  { angle: 270, label: 'W' },
-  { angle: 315, label: 'NW' },
+  { angle: 0, label: "N" },
+  { angle: 45, label: "NE" },
+  { angle: 90, label: "E" },
+  { angle: 135, label: "SE" },
+  { angle: 180, label: "S" },
+  { angle: 225, label: "SW" },
+  { angle: 270, label: "W" },
+  { angle: 315, label: "NW" },
 ];
 
 function snapAngle(angleDeg: number): { angle: number; label: Facing } {
@@ -26,7 +27,10 @@ function snapAngle(angleDeg: number): { angle: number; label: Facing } {
   let best = ticks[0];
   let minDiff = 9999;
   for (const t of ticks) {
-    const diff = Math.min(Math.abs(wrapped - t.angle), 360 - Math.abs(wrapped - t.angle));
+    const diff = Math.min(
+      Math.abs(wrapped - t.angle),
+      360 - Math.abs(wrapped - t.angle)
+    );
     if (diff < minDiff) {
       minDiff = diff;
       best = t;
@@ -35,20 +39,33 @@ function snapAngle(angleDeg: number): { angle: number; label: Facing } {
   return { angle: best.angle, label: best.label };
 }
 
-export const CompassWidget: React.FC<CompassWidgetProps> = ({ valueAngle = 0, valueLabel, onChange, className }) => {
+export const CompassWidget: React.FC<CompassWidgetProps> = ({
+  valueAngle = 0,
+  valueLabel,
+  onChange,
+  className,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
   const current = useMemo(() => snapAngle(valueAngle), [valueAngle]);
 
-  const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+  // Native event handlers for better control
+  const handlePointerDown = (e: PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDragging(true);
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    onPointerMove(e);
+    if (containerRef.current) {
+      containerRef.current.setPointerCapture(e.pointerId);
+    }
+    handlePointerMove(e);
   };
 
-  const onPointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+  const handlePointerMove = (e: PointerEvent) => {
     if (!dragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -63,41 +80,85 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({ valueAngle = 0, va
     onChange({ angle: snapped.angle, label: snapped.label });
   };
 
-  const onPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
+  const handlePointerUp = (e: PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDragging(false);
-    (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    if (containerRef.current) {
+      containerRef.current.releasePointerCapture(e.pointerId);
+    }
   };
 
+  const handleWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Convert wheel delta to angle change
+    const deltaAngle = e.deltaY > 0 ? -15 : 15; // 15 degree steps
+    const newAngle = (((valueAngle + deltaAngle) % 360) + 360) % 360;
+    const snapped = snapAngle(newAngle);
+    onChange({ angle: snapped.angle, label: snapped.label });
+  };
+
+  // Set up native event listeners
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    element.addEventListener("pointerdown", handlePointerDown, {
+      passive: false,
+    });
+    element.addEventListener("pointermove", handlePointerMove, {
+      passive: false,
+    });
+    element.addEventListener("pointerup", handlePointerUp, { passive: false });
+    element.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener("pointerdown", handlePointerDown);
+      element.removeEventListener("pointermove", handlePointerMove);
+      element.removeEventListener("pointerup", handlePointerUp);
+      element.removeEventListener("wheel", handleWheel);
+    };
+  }, [dragging, valueAngle, onChange]);
+
+  // eslint-disable-next-line react/no-inline-styles
   return (
     <div
       ref={containerRef}
-      className={cn('select-none', className)}
+      className={cn("select-none", className)}
+      style={{ touchAction: "none" }}
+      onWheel={(e) => e.preventDefault()}
     >
       <div
         className="relative w-36 h-36 rounded-full border bg-card shadow-md"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        style={{ touchAction: "none" }}
       >
         {/* dial + ring */}
         <div className="absolute inset-2 rounded-full border bg-background" />
         <div className="absolute inset-0 rounded-full border-2 border-muted-foreground/20" />
-        <div className="absolute inset-6 rounded-full pointer-events-none opacity-40" style={{ boxShadow: 'inset 0 0 24px rgba(0,0,0,0.08)' }} />
+        <div
+          className="absolute inset-6 rounded-full pointer-events-none opacity-40"
+          style={{ boxShadow: "inset 0 0 24px rgba(0,0,0,0.08)" }}
+        />
         {/* Removed tick lines (major/minor) */}
         {/* rotating dial with labels (snap to 8) */}
         <div
           className="absolute inset-0"
           style={{ transform: `rotate(${current.angle}deg)` }}
         >
-          {ticks.map(t => (
+          {ticks.map((t) => (
             <div
               key={t.label}
               className={cn(
-                'absolute left-1/2 top-1/2 text-foreground',
-                ['N','E','S','W'].includes(t.label) ? 'text-xs font-semibold' : 'text-[10px] text-foreground/80'
+                "absolute left-1/2 top-1/2 text-foreground",
+                ["N", "E", "S", "W"].includes(t.label)
+                  ? "text-xs font-semibold"
+                  : "text-[10px] text-foreground/80"
               )}
               style={{
-                transform: `translate(-50%, -50%) rotate(${t.angle}deg) translate(0, -60px) rotate(${-t.angle}deg)`
+                transform: `translate(-50%, -50%) rotate(${
+                  t.angle
+                }deg) translate(0, -60px) rotate(${-t.angle}deg)`,
               }}
             >
               {t.label}
@@ -114,5 +175,3 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({ valueAngle = 0, va
 };
 
 export default CompassWidget;
-
-
