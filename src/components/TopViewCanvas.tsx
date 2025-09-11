@@ -803,7 +803,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   };
 
   // Touch event handlers for mobile devices
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent) => {
     e.preventDefault(); // Prevent default touch behavior
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -915,7 +915,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent) => {
     e.preventDefault(); // Prevent default touch behavior
     if (!isDragging || !draggedObstacle) return;
 
@@ -991,7 +991,7 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     e.preventDefault(); // Prevent default touch behavior
     setIsDragging(false);
     setDraggedObstacle(null);
@@ -1046,6 +1046,33 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedObstacleId, selectedObstacleIds]);
 
+  // Set up native touch event listeners with passive: false
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [
+    isDragging,
+    draggedObstacle,
+    dragOffset,
+    groupDragState,
+    multiSelectMode,
+    selectedObstacleIds,
+    obstacles,
+    canvasOffset,
+    canvasScale,
+    baseFacingAngle,
+  ]);
+
   return (
     <div className="relative w-full h-full bg-background border rounded-lg overflow-hidden">
       <div className="absolute top-4 left-4 bg-card/90 backdrop-blur px-3 py-2 rounded-lg border text-sm text-muted-foreground">
@@ -1071,9 +1098,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       />
 
       {/* Compass overlay (top-right), visible in obstacle editor */}
