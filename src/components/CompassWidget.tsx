@@ -1,6 +1,6 @@
-/* eslint-disable react/no-inline-styles */
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import "./CompassWidget.css";
 
 type Facing = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
@@ -49,6 +49,10 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({
   const [dragging, setDragging] = useState(false);
 
   const current = useMemo(() => snapAngle(valueAngle), [valueAngle]);
+
+  // Get CSS class for rotation
+  const getRotationClass = (angle: number) => `compass-rotate-${angle}`;
+  const getTickClass = (angle: number) => `compass-tick-${angle}`;
 
   // Native event handlers for better control
   const handlePointerDown = (e: PointerEvent) => {
@@ -121,45 +125,35 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({
     };
   }, [dragging, valueAngle, onChange]);
 
-  // eslint-disable-next-line react/no-inline-styles
   return (
     <div
       ref={containerRef}
-      className={cn("select-none", className)}
-      style={{ touchAction: "none" }}
+      className={cn("select-none compass-container", className)}
       onWheel={(e) => e.preventDefault()}
     >
-      <div
-        className="relative w-36 h-36 rounded-full border bg-card shadow-md"
-        style={{ touchAction: "none" }}
-      >
+      <div className="relative w-36 h-36 rounded-full border bg-card shadow-md compass-dial">
         {/* dial + ring */}
         <div className="absolute inset-2 rounded-full border bg-background" />
         <div className="absolute inset-0 rounded-full border-2 border-muted-foreground/20" />
-        <div
-          className="absolute inset-6 rounded-full pointer-events-none opacity-40"
-          style={{ boxShadow: "inset 0 0 24px rgba(0,0,0,0.08)" }}
-        />
+        <div className="absolute inset-6 rounded-full pointer-events-none opacity-40 compass-shadow" />
         {/* Removed tick lines (major/minor) */}
         {/* rotating dial with labels (snap to 8) */}
         <div
-          className="absolute inset-0"
-          style={{ transform: `rotate(${current.angle}deg)` }}
+          className={cn(
+            "absolute inset-0 compass-rotating-dial",
+            getRotationClass(current.angle)
+          )}
         >
           {ticks.map((t) => (
             <div
               key={t.label}
               className={cn(
-                "absolute left-1/2 top-1/2 text-foreground",
+                "absolute left-1/2 top-1/2 text-foreground compass-tick-label",
+                getTickClass(t.angle),
                 ["N", "E", "S", "W"].includes(t.label)
                   ? "text-xs font-semibold"
                   : "text-[10px] text-foreground/80"
               )}
-              style={{
-                transform: `translate(-50%, -50%) rotate(${
-                  t.angle
-                }deg) translate(0, -60px) rotate(${-t.angle}deg)`,
-              }}
             >
               {t.label}
             </div>
