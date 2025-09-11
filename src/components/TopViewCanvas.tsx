@@ -1020,12 +1020,6 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     }
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    setCanvasScale(canvasScale * scaleFactor);
-  };
-
   useEffect(() => {
     drawShapes();
   }, [
@@ -1046,19 +1040,34 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedObstacleId, selectedObstacleIds]);
 
-  // Set up native touch event listeners with passive: false
+  // Set up native touch and wheel event listeners with passive: false
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const handleWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const { minScale, maxScale, zoomStep } = useShapeStore.getState();
+      const scaleFactor = e.deltaY > 0 ? 1 / zoomStep : zoomStep;
+      const newScale = Math.max(
+        minScale,
+        Math.min(maxScale, canvasScale * scaleFactor)
+      );
+      setCanvasScale(newScale);
+    };
+
     canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
     canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
     canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+    canvas.addEventListener("wheel", handleWheelNative, { passive: false });
 
     return () => {
       canvas.removeEventListener("touchstart", handleTouchStart);
       canvas.removeEventListener("touchmove", handleTouchMove);
       canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("wheel", handleWheelNative);
     };
   }, [
     isDragging,
@@ -1074,7 +1083,10 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
   ]);
 
   return (
-    <div className="relative w-full h-full bg-background border rounded-lg overflow-hidden">
+    <div
+      className="relative w-full h-full bg-background border rounded-lg overflow-hidden"
+      onWheel={(e) => e.preventDefault()}
+    >
       <div className="absolute top-4 left-4 bg-card/90 backdrop-blur px-3 py-2 rounded-lg border text-sm text-muted-foreground">
         <div className="font-medium mb-1">Top View - Obstacle Placement</div>
         <div className="text-xs space-y-1">
@@ -1094,10 +1106,10 @@ export const TopViewCanvas = ({ shapes }: TopViewCanvasProps) => {
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-crosshair touch-none"
+        style={{ touchAction: "none" }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
       />
 
       {/* Compass overlay (top-right), visible in obstacle editor */}
