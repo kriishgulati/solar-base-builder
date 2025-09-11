@@ -26,6 +26,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
     shapes,
     updateShape,
     selectShape,
+    deleteShape,
     copyShape,
     selectedShapeIds,
     createGroup,
@@ -62,13 +63,19 @@ export const ShapeToolbar = ({ isDragging = false }) => {
       let updatedDimensions: any = {};
 
       if (selectedShape.type === "square") {
-        updatedDimensions = { length: dimensions.length, width: dimensions.length };
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.length,
+        };
       } else if (selectedShape.type === "circle") {
         updatedDimensions = { radius: dimensions.radius };
       } else if (selectedShape.type === "triangle") {
         updatedDimensions = { length: dimensions.length };
       } else {
-        updatedDimensions = { length: dimensions.length, width: dimensions.width };
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.width,
+        };
       }
 
       updateShape(selectedShape.id, {
@@ -189,7 +196,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 type="number"
                 value={dimensions.radius}
                 onChange={(e) =>
-                  setDimensions((prev) => ({ ...prev, radius: Number(e.target.value) }))
+                  setDimensions((prev) => ({
+                    ...prev,
+                    radius: Number(e.target.value),
+                  }))
                 }
                 className="h-9"
                 min="0.1"
@@ -206,7 +216,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 type="number"
                 value={dimensions.length}
                 onChange={(e) =>
-                  setDimensions((prev) => ({ ...prev, length: Number(e.target.value) }))
+                  setDimensions((prev) => ({
+                    ...prev,
+                    length: Number(e.target.value),
+                  }))
                 }
                 className="h-9"
                 min="0.1"
@@ -216,7 +229,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label htmlFor="length" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="length"
+                  className="text-xs text-muted-foreground"
+                >
                   Length
                 </Label>
                 <Input
@@ -224,7 +240,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                   type="number"
                   value={dimensions.length}
                   onChange={(e) =>
-                    setDimensions((prev) => ({ ...prev, length: Number(e.target.value) }))
+                    setDimensions((prev) => ({
+                      ...prev,
+                      length: Number(e.target.value),
+                    }))
                   }
                   className="h-9"
                   min="0.1"
@@ -232,7 +251,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="width" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="width"
+                  className="text-xs text-muted-foreground"
+                >
                   Width
                 </Label>
                 <Input
@@ -240,7 +262,10 @@ export const ShapeToolbar = ({ isDragging = false }) => {
                   type="number"
                   value={dimensions.width}
                   onChange={(e) =>
-                    setDimensions((prev) => ({ ...prev, width: Number(e.target.value) }))
+                    setDimensions((prev) => ({
+                      ...prev,
+                      width: Number(e.target.value),
+                    }))
                   }
                   className="h-9"
                   min="0.1"
@@ -303,7 +328,7 @@ export const ShapeToolbar = ({ isDragging = false }) => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => selectShape(null)}
+                onClick={() => deleteShape(selectedShape.id)}
                 size="sm"
               >
                 <Trash2 size={16} />
@@ -329,7 +354,9 @@ export const ShapeToolbar = ({ isDragging = false }) => {
             <Button
               variant="outline"
               size="sm"
-              disabled={!selectedShapeId || !getGroupIdForShape(selectedShapeId)}
+              disabled={
+                !selectedShapeId || !getGroupIdForShape(selectedShapeId)
+              }
               onClick={() => {
                 if (selectedShapeId) {
                   const gid = getGroupIdForShape(selectedShapeId);
