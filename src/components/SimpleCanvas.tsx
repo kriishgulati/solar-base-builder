@@ -968,6 +968,7 @@ export const SimpleCanvas = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        // eslint-disable-next-line react/forbid-dom-props
         style={{ touchAction: "none" }} // Prevent default touch behaviors like scrolling
       />
 
