@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
-import { useShapeStore } from '@/stores/shapeStore';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RotateCcw, Trash2, Plus, Copy, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useShapeStore } from "@/stores/shapeStore";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RotateCcw, Trash2, Plus, Copy, ZoomIn, ZoomOut } from "lucide-react";
 
 interface ObstacleToolbarProps {
   onClose: () => void;
   baseHeight: number;
 }
 
-export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) => {
+export const ObstacleToolbar = ({
+  onClose,
+  baseHeight,
+}: ObstacleToolbarProps) => {
   const {
     activeShapeType,
     setActiveShapeType,
@@ -21,14 +24,14 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
     selectedObstacleId,
     updateObstacle,
     selectObstacle,
-  copyObstacle,
-  zoomIn,
-  zoomOut,
-  recenterCanvas,
-  recenterOnSelectedObstacle,
+    copyObstacle,
+    zoomIn,
+    zoomOut,
+    recenterCanvas,
+    recenterOnSelectedObstacle,
   } = useShapeStore();
 
-  const selectedObstacle = obstacles.find(o => o.id === selectedObstacleId);
+  const selectedObstacle = obstacles.find((o) => o.id === selectedObstacleId);
 
   const [dimensions, setDimensions] = useState({
     length: 1,
@@ -42,8 +45,14 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
   useEffect(() => {
     if (selectedObstacle) {
       setDimensions({
-        length: selectedObstacle.type === 'solarPanel' ? 2 : (selectedObstacle.dimensions.length ?? 1),
-        width: selectedObstacle.type === 'solarPanel' ? 1 : (selectedObstacle.dimensions.width ?? 1),
+        length:
+          selectedObstacle.type === "solarPanel"
+            ? 2
+            : selectedObstacle.dimensions.length ?? 1,
+        width:
+          selectedObstacle.type === "solarPanel"
+            ? 1
+            : selectedObstacle.dimensions.width ?? 1,
         radius: selectedObstacle.dimensions.radius ?? 1,
       });
       setRotation(selectedObstacle.rotation ?? 0);
@@ -58,16 +67,22 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
       // Preserve square aspect ratio for obstacles of type 'square'
       let updatedDimensions: any = {};
 
-      if (selectedObstacle.type === 'solarPanel') {
+      if (selectedObstacle.type === "solarPanel") {
         updatedDimensions = { length: 2, width: 1 };
-      } else if (selectedObstacle.type === 'square') {
-        updatedDimensions = { length: dimensions.length, width: dimensions.length };
-      } else if (selectedObstacle.type === 'circle') {
+      } else if (selectedObstacle.type === "square") {
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.length,
+        };
+      } else if (selectedObstacle.type === "circle") {
         updatedDimensions = { radius: dimensions.radius };
-      } else if (selectedObstacle.type === 'triangle') {
+      } else if (selectedObstacle.type === "triangle") {
         updatedDimensions = { length: dimensions.length };
       } else {
-        updatedDimensions = { length: dimensions.length, width: dimensions.width };
+        updatedDimensions = {
+          length: dimensions.length,
+          width: dimensions.width,
+        };
       }
 
       updateObstacle(selectedObstacle.id, {
@@ -81,18 +96,26 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dimensions.length, dimensions.width, dimensions.radius, rotation, height]);
+  }, [
+    dimensions.length,
+    dimensions.width,
+    dimensions.radius,
+    rotation,
+    height,
+  ]);
 
   // Use baseHeight when creating obstacles
   const handleAddObstacle = () => {
-    if (activeShapeType === 'solarPanel') {
+    if (activeShapeType === "solarPanel") {
       addObstacle({
-        type: 'solarPanel',
+        type: "solarPanel",
         dimensions: { length: 2, width: 1 },
         position: { x: 0, y: 0 },
         rotation: rotation,
         height: height,
-        totalHeight: height + baseHeight
+        totalHeight: height + baseHeight,
+        facingAngle: rotation,
+        facing: "N",
       });
     } else {
       addObstacle({
@@ -100,8 +123,10 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
         dimensions,
         position: { x: 0, y: 0 }, // center
         rotation: rotation,
-        height: height,                // obstacle's own height
-        totalHeight: height + baseHeight  // combined height for 3D export
+        height: height, // obstacle's own height
+        totalHeight: height + baseHeight, // combined height for 3D export
+        facingAngle: rotation,
+        facing: "N",
       });
     }
   };
@@ -111,7 +136,9 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-foreground mb-3">Add Obstacles</h3>
+        <h3 className="text-lg font-semibold text-foreground mb-3">
+          Add Obstacles
+        </h3>
         <p className="text-sm text-muted-foreground mb-4">
           Place obstacles on or around your base structure
         </p>
@@ -130,7 +157,11 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
           <Button size="sm" onClick={() => recenterCanvas()} title="Recenter">
             <RotateCcw size={14} />
           </Button>
-          <Button size="sm" onClick={() => recenterOnSelectedObstacle()} title="Center on Selected">
+          <Button
+            size="sm"
+            onClick={() => recenterOnSelectedObstacle()}
+            title="Center on Selected"
+          >
             <RotateCcw size={14} />
           </Button>
         </div>
@@ -138,18 +169,22 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
 
       {/* Shape Type Selection */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-foreground">Shape Type</Label>
+        <Label className="text-sm font-medium text-foreground">
+          Shape Type
+        </Label>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { key: 'rectangle', label: 'Rectangle' },
-            { key: 'square', label: 'Square' },
-            { key: 'circle', label: 'Circle' },
-            { key: 'triangle', label: 'Triangle' },
-            { key: 'solarPanel', label: 'Solar Panel' },
+            { key: "rectangle", label: "Rectangle" },
+            { key: "square", label: "Square" },
+            { key: "circle", label: "Circle" },
+            { key: "triangle", label: "Triangle" },
+            { key: "solarPanel", label: "Solar Panel" },
           ].map((shape) => (
             <Button
               key={shape.key}
-              variant={activeShapeType === (shape.key as any) ? 'default' : 'outline'}
+              variant={
+                activeShapeType === (shape.key as any) ? "default" : "outline"
+              }
               size="sm"
               onClick={() => {
                 setActiveShapeType(shape.key as any);
@@ -165,54 +200,79 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
 
       {/* Dimensions */}
       <div className="space-y-3">
-        <Label className="text-sm font-medium text-foreground">Dimensions</Label>
+        <Label className="text-sm font-medium text-foreground">
+          Dimensions
+        </Label>
         <div className="space-y-2">
-          {activeShapeType === 'circle' && (
+          {activeShapeType === "circle" && (
             <div>
-              <Label htmlFor="radius" className="text-xs text-muted-foreground">Radius</Label>
+              <Label htmlFor="radius" className="text-xs text-muted-foreground">
+                Radius
+              </Label>
               <Input
                 id="radius"
                 type="number"
                 min="0.1"
                 step="0.1"
                 value={dimensions.radius}
-                onChange={(e) => setDimensions(prev => ({ ...prev, radius: parseFloat(e.target.value) || 1 }))}
+                onChange={(e) =>
+                  setDimensions((prev) => ({
+                    ...prev,
+                    radius: parseFloat(e.target.value) || 1,
+                  }))
+                }
                 className="h-8"
               />
             </div>
           )}
-          
-          {(activeShapeType === 'rectangle' || activeShapeType === 'square' || activeShapeType === 'triangle') && (
+
+          {(activeShapeType === "rectangle" ||
+            activeShapeType === "square" ||
+            activeShapeType === "triangle") && (
             <div>
-              <Label htmlFor="length" className="text-xs text-muted-foreground">Length</Label>
+              <Label htmlFor="length" className="text-xs text-muted-foreground">
+                Length
+              </Label>
               <Input
                 id="length"
                 type="number"
                 min="0.1"
                 step="0.1"
                 value={dimensions.length}
-                onChange={(e) => setDimensions(prev => ({ ...prev, length: parseFloat(e.target.value) || 1 }))}
+                onChange={(e) =>
+                  setDimensions((prev) => ({
+                    ...prev,
+                    length: parseFloat(e.target.value) || 1,
+                  }))
+                }
                 className="h-8"
               />
             </div>
           )}
-          
-          {activeShapeType === 'rectangle' && (
+
+          {activeShapeType === "rectangle" && (
             <div>
-              <Label htmlFor="width" className="text-xs text-muted-foreground">Width</Label>
+              <Label htmlFor="width" className="text-xs text-muted-foreground">
+                Width
+              </Label>
               <Input
                 id="width"
                 type="number"
                 min="0.1"
                 step="0.1"
                 value={dimensions.width}
-                onChange={(e) => setDimensions(prev => ({ ...prev, width: parseFloat(e.target.value) || 1 }))}
+                onChange={(e) =>
+                  setDimensions((prev) => ({
+                    ...prev,
+                    width: parseFloat(e.target.value) || 1,
+                  }))
+                }
                 className="h-8"
               />
             </div>
           )}
 
-          {activeShapeType === 'solarPanel' && (
+          {activeShapeType === "solarPanel" && (
             <div className="text-xs text-muted-foreground">
               Fixed base: 1.0m × 2.0m
             </div>
@@ -241,7 +301,12 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
       {/* Rotation */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="rotation" className="text-sm font-medium text-foreground">Rotation (°)</Label>
+          <Label
+            htmlFor="rotation"
+            className="text-sm font-medium text-foreground"
+          >
+            Rotation (°)
+          </Label>
           <Button
             variant="ghost"
             size="sm"
@@ -270,9 +335,9 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
           <Plus size={16} className="mr-2" />
           Add Obstacle
         </Button>
-        
-        <Button 
-          variant="outline" 
+
+        <Button
+          variant="outline"
           onClick={clearObstacles}
           className="w-full"
           disabled={obstacles.length === 0}
@@ -283,7 +348,11 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
 
         {selectedObstacle && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => copyObstacle(selectedObstacle.id)} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={() => copyObstacle(selectedObstacle.id)}
+              className="flex-1"
+            >
               <Copy size={16} className="mr-2" />
               Copy Obstacle
             </Button>
@@ -296,7 +365,7 @@ export const ObstacleToolbar = ({ onClose, baseHeight }: ObstacleToolbarProps) =
 
       {obstacles.length > 0 && (
         <div className="text-xs text-muted-foreground pt-2 border-t">
-          {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} placed
+          {obstacles.length} obstacle{obstacles.length !== 1 ? "s" : ""} placed
         </div>
       )}
     </div>
