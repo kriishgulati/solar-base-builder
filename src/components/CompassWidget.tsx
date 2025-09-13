@@ -131,13 +131,39 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({
       className={cn("select-none compass-container", className)}
       onWheel={(e) => e.preventDefault()}
     >
-      <div className="relative w-36 h-36 rounded-full border bg-card shadow-md compass-dial">
-        {/* dial + ring */}
-        <div className="absolute inset-2 rounded-full border bg-background" />
-        <div className="absolute inset-0 rounded-full border-2 border-muted-foreground/20" />
-        <div className="absolute inset-6 rounded-full pointer-events-none opacity-40 compass-shadow" />
-        {/* Removed tick lines (major/minor) */}
-        {/* rotating dial with labels (snap to 8) */}
+      <div className="relative w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] lg:w-[140px] lg:h-[140px] rounded-full compass-dial">
+        {/* Main compass background with radial gradient */}
+        <div className="absolute inset-0 rounded-full compass-background" />
+
+        {/* Outer ring */}
+        <div className="absolute inset-2 rounded-full compass-outer-ring" />
+
+        {/* Degree tick marks - simplified to avoid inline styles */}
+        <div className="absolute inset-0 rounded-full compass-ticks">
+          {/* Only render major ticks to avoid performance issues */}
+          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(
+            (angle) => (
+              <div
+                key={angle}
+                className={`absolute compass-degree-tick compass-degree-${angle}`}
+              />
+            )
+          )}
+        </div>
+
+        {/* Major tick marks for every 30 degrees */}
+        <div className="absolute inset-0 rounded-full">
+          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(
+            (angle) => (
+              <div
+                key={angle}
+                className={`absolute compass-major-tick compass-major-${angle}`}
+              />
+            )
+          )}
+        </div>
+
+        {/* Rotating dial with cardinal directions */}
         <div
           className={cn(
             "absolute inset-0 compass-rotating-dial",
@@ -148,21 +174,34 @@ export const CompassWidget: React.FC<CompassWidgetProps> = ({
             <div
               key={t.label}
               className={cn(
-                "absolute left-1/2 top-1/2 text-foreground compass-tick-label",
+                "absolute left-1/2 top-1/2 text-white compass-tick-label",
                 getTickClass(t.angle),
                 ["N", "E", "S", "W"].includes(t.label)
-                  ? "text-xs font-semibold"
-                  : "text-[10px] text-foreground/80"
+                  ? "text-lg font-semibold tracking-wide"
+                  : "text-sm font-medium tracking-wide"
               )}
             >
               {t.label}
             </div>
           ))}
         </div>
-        {/* selection indicators removed */}
-        {/* center hub */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border border-red-600 shadow" />
-        {/* bottom indicator removed */}
+
+        {/* Compass needle */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-1 h-16">
+            {/* Red needle (North) */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[2px] border-r-[2px] border-b-[16px] border-l-transparent border-r-transparent border-b-red-500 compass-needle-red" />
+            {/* White needle (South) */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[2px] border-r-[2px] border-t-[16px] border-l-transparent border-r-transparent border-t-white compass-needle-white" />
+          </div>
+        </div>
+
+        {/* Center degree display */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+          <span className="text-white font-semibold tracking-wide text-shadow compass-degree-text">
+            {Math.round(valueAngle)}°
+          </span>
+        </div>
       </div>
     </div>
   );

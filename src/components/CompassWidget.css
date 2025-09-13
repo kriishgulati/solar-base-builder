@@ -1,23 +1,215 @@
-/* CompassWidget styles */
+/* Apple-style Compass Widget */
 .compass-container {
   touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .compass-dial {
   touch-action: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-.compass-shadow {
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.08);
+/* Main compass background with radial gradient */
+.compass-background {
+  background: radial-gradient(
+    circle at center,
+    rgba(60, 60, 60, 1) 0%,
+    rgba(50, 50, 50, 1) 40%,
+    rgba(40, 40, 40, 1) 70%,
+    rgba(31, 31, 31, 1) 100%
+  );
+}
+
+/* Outer ring */
+.compass-outer-ring {
+  background: linear-gradient(
+    135deg,
+    rgba(70, 70, 70, 0.4) 0%,
+    rgba(55, 55, 55, 0.6) 30%,
+    rgba(45, 45, 45, 0.7) 60%,
+    rgba(35, 35, 35, 0.8) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Degree tick marks */
+.compass-degree-tick {
+  width: 1px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  top: 6px;
+  left: 50%;
+}
+
+/* Major tick marks for every 30 degrees */
+.compass-major-tick {
+  width: 2px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  top: 4px;
+  left: 50%;
+}
+
+/* Compass needle styles */
+.compass-needle-red,
+.compass-needle-white {
+  transform: translateX(-50%);
+}
+
+/* Degree tick classes */
+.compass-degree-0 {
+  transform: rotate(0deg) translateY(-50%);
+}
+.compass-degree-30 {
+  transform: rotate(30deg) translateY(-50%);
+}
+.compass-degree-60 {
+  transform: rotate(60deg) translateY(-50%);
+}
+.compass-degree-90 {
+  transform: rotate(90deg) translateY(-50%);
+}
+.compass-degree-120 {
+  transform: rotate(120deg) translateY(-50%);
+}
+.compass-degree-150 {
+  transform: rotate(150deg) translateY(-50%);
+}
+.compass-degree-180 {
+  transform: rotate(180deg) translateY(-50%);
+}
+.compass-degree-210 {
+  transform: rotate(210deg) translateY(-50%);
+}
+.compass-degree-240 {
+  transform: rotate(240deg) translateY(-50%);
+}
+.compass-degree-270 {
+  transform: rotate(270deg) translateY(-50%);
+}
+.compass-degree-300 {
+  transform: rotate(300deg) translateY(-50%);
+}
+.compass-degree-330 {
+  transform: rotate(330deg) translateY(-50%);
+}
+
+/* Major tick classes */
+.compass-major-0 {
+  transform: rotate(0deg) translateY(-50%);
+}
+.compass-major-30 {
+  transform: rotate(30deg) translateY(-50%);
+}
+.compass-major-60 {
+  transform: rotate(60deg) translateY(-50%);
+}
+.compass-major-90 {
+  transform: rotate(90deg) translateY(-50%);
+}
+.compass-major-120 {
+  transform: rotate(120deg) translateY(-50%);
+}
+.compass-major-150 {
+  transform: rotate(150deg) translateY(-50%);
+}
+.compass-major-180 {
+  transform: rotate(180deg) translateY(-50%);
+}
+.compass-major-210 {
+  transform: rotate(210deg) translateY(-50%);
+}
+.compass-major-240 {
+  transform: rotate(240deg) translateY(-50%);
+}
+.compass-major-270 {
+  transform: rotate(270deg) translateY(-50%);
+}
+.compass-major-300 {
+  transform: rotate(300deg) translateY(-50%);
+}
+.compass-major-330 {
+  transform: rotate(330deg) translateY(-50%);
 }
 
 .compass-rotating-dial {
-  transform: rotate(var(--rotation-angle, 0deg));
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .compass-tick-label {
   transform: translate(-50%, -50%) rotate(var(--tick-angle, 0deg))
-    translate(0, -60px) rotate(var(--tick-negative-angle, 0deg));
+    translate(0, -41px) rotate(var(--tick-negative-angle, 0deg)); /* Base for 100px diameter */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (min-width: 640px) {
+  .compass-tick-label {
+    transform: translate(-50%, -50%) rotate(var(--tick-angle, 0deg))
+      translate(0, -49px) rotate(var(--tick-negative-angle, 0deg)); /* For 120px diameter */
+  }
+}
+
+@media (min-width: 1024px) {
+  .compass-tick-label {
+    transform: translate(-50%, -50%) rotate(var(--tick-angle, 0deg))
+      translate(0, -57px) rotate(var(--tick-negative-angle, 0deg)); /* For 140px diameter */
+  }
+}
+
+.text-shadow {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Responsive degree text */
+.compass-degree-text {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+@media (min-width: 640px) {
+  .compass-degree-text {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .compass-degree-text {
+    font-size: 18px;
+  }
+}
+
+/* Responsive tick mark positioning */
+.compass-degree-tick {
+  transform-origin: 50% 50px; /* Base for 100px diameter */
+}
+
+.compass-major-tick {
+  transform-origin: 50% 50px; /* Base for 100px diameter */
+}
+
+@media (min-width: 640px) {
+  .compass-degree-tick {
+    transform-origin: 50% 60px; /* For 120px diameter */
+  }
+
+  .compass-major-tick {
+    transform-origin: 50% 60px; /* For 120px diameter */
+  }
+}
+
+@media (min-width: 1024px) {
+  .compass-degree-tick {
+    transform-origin: 50% 70px; /* For 140px diameter */
+  }
+
+  .compass-major-tick {
+    transform-origin: 50% 70px; /* For 140px diameter */
+  }
 }
 
 /* Dynamic rotation classes for the main dial */
@@ -48,33 +240,104 @@
 
 /* Dynamic rotation classes for tick labels */
 .compass-tick-0 {
-  transform: translate(-50%, -50%) rotate(0deg) translate(0, -60px) rotate(0deg);
+  transform: translate(-50%, -50%) rotate(0deg) translate(0, -41px) rotate(0deg);
 }
 .compass-tick-45 {
-  transform: translate(-50%, -50%) rotate(45deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(45deg) translate(0, -41px)
     rotate(-45deg);
 }
 .compass-tick-90 {
-  transform: translate(-50%, -50%) rotate(90deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(90deg) translate(0, -41px)
     rotate(-90deg);
 }
 .compass-tick-135 {
-  transform: translate(-50%, -50%) rotate(135deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(135deg) translate(0, -41px)
     rotate(-135deg);
 }
 .compass-tick-180 {
-  transform: translate(-50%, -50%) rotate(180deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(180deg) translate(0, -41px)
     rotate(-180deg);
 }
 .compass-tick-225 {
-  transform: translate(-50%, -50%) rotate(225deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(225deg) translate(0, -41px)
     rotate(-225deg);
 }
 .compass-tick-270 {
-  transform: translate(-50%, -50%) rotate(270deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(270deg) translate(0, -41px)
     rotate(-270deg);
 }
 .compass-tick-315 {
-  transform: translate(-50%, -50%) rotate(315deg) translate(0, -60px)
+  transform: translate(-50%, -50%) rotate(315deg) translate(0, -41px)
     rotate(-315deg);
+}
+
+/* Responsive tick label positioning */
+@media (min-width: 640px) {
+  .compass-tick-0 {
+    transform: translate(-50%, -50%) rotate(0deg) translate(0, -49px)
+      rotate(0deg);
+  }
+  .compass-tick-45 {
+    transform: translate(-50%, -50%) rotate(45deg) translate(0, -49px)
+      rotate(-45deg);
+  }
+  .compass-tick-90 {
+    transform: translate(-50%, -50%) rotate(90deg) translate(0, -49px)
+      rotate(-90deg);
+  }
+  .compass-tick-135 {
+    transform: translate(-50%, -50%) rotate(135deg) translate(0, -49px)
+      rotate(-135deg);
+  }
+  .compass-tick-180 {
+    transform: translate(-50%, -50%) rotate(180deg) translate(0, -49px)
+      rotate(-180deg);
+  }
+  .compass-tick-225 {
+    transform: translate(-50%, -50%) rotate(225deg) translate(0, -49px)
+      rotate(-225deg);
+  }
+  .compass-tick-270 {
+    transform: translate(-50%, -50%) rotate(270deg) translate(0, -49px)
+      rotate(-270deg);
+  }
+  .compass-tick-315 {
+    transform: translate(-50%, -50%) rotate(315deg) translate(0, -49px)
+      rotate(-315deg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .compass-tick-0 {
+    transform: translate(-50%, -50%) rotate(0deg) translate(0, -57px)
+      rotate(0deg);
+  }
+  .compass-tick-45 {
+    transform: translate(-50%, -50%) rotate(45deg) translate(0, -57px)
+      rotate(-45deg);
+  }
+  .compass-tick-90 {
+    transform: translate(-50%, -50%) rotate(90deg) translate(0, -57px)
+      rotate(-90deg);
+  }
+  .compass-tick-135 {
+    transform: translate(-50%, -50%) rotate(135deg) translate(0, -57px)
+      rotate(-135deg);
+  }
+  .compass-tick-180 {
+    transform: translate(-50%, -50%) rotate(180deg) translate(0, -57px)
+      rotate(-180deg);
+  }
+  .compass-tick-225 {
+    transform: translate(-50%, -50%) rotate(225deg) translate(0, -57px)
+      rotate(-225deg);
+  }
+  .compass-tick-270 {
+    transform: translate(-50%, -50%) rotate(270deg) translate(0, -57px)
+      rotate(-270deg);
+  }
+  .compass-tick-315 {
+    transform: translate(-50%, -50%) rotate(315deg) translate(0, -57px)
+      rotate(-315deg);
+  }
 }
