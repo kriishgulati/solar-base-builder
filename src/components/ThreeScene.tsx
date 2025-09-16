@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment, TransformControls, Html } from '@react-three/drei';
 import ShadowCoverageCalculator from '@/lib/ShadowCoverageCalculator';
@@ -458,6 +458,74 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
   const [manualSunPos, setManualSunPos] = useState<[number, number, number] | undefined>(undefined);
   const [playing, setPlaying] = useState(false);
   const [aggregatePercent, setAggregatePercent] = useState<number>(0);
+  const controlsRef = useRef<any>(null);
+
+  // Smoothly adjust camera distance based on building height so it fits the view
+  // Runs when 3D scene mounts or the buildingHeight changes
+  const fitCameraToHeight = (height: number) => {
+    try {
+      // Only proceed if controls and a perspective camera are available
+      const controls = controlsRef.current as import('three-stdlib').OrbitControls | null;
+      const camera = controls?.object as THREE.PerspectiveCamera | undefined;
+      if (!camera || !controls || !(camera as any).isPerspectiveCamera) return;
+
+      // Compute desired radial distance from target to fit entire height in vertical FOV
+      const fovRad = (camera.fov * Math.PI) / 180;
+      const margin = 1.2; // add some headroom
+      const required = (height * 0.5 * margin) / Math.tan(fovRad / 2);
+
+      // Update target height to mid-building so it centers vertically
+      const desiredTargetY = Math.max(1, height / 2);
+      const target = controls.target.clone();
+      target.y = desiredTargetY;
+
+      // Current radius and direction
+      const currentOffset = camera.position.clone().sub(controls.target);
+      const direction = currentOffset.clone().normalize();
+      const currentRadius = currentOffset.length();
+      const nextRadius = Math.max(required, 5);
+
+      // Allow zooming out far enough after the animation
+      controls.maxDistance = Math.max(100, height * 3);
+
+      // Animate radius and target.y over ~700ms
+      const durationMs = 700;
+      const start = performance.now();
+      const startTargetY = controls.target.y;
+
+      const animate = (t: number) => {
+        const now = performance.now();
+        const elapsed = now - start;
+        const u = Math.min(1, elapsed / durationMs);
+        // easeInOutCubic
+        const ease = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+
+        const radius = currentRadius + (nextRadius - currentRadius) * ease;
+        const ty = startTargetY + (desiredTargetY - startTargetY) * ease;
+
+        // Update target and camera along the same look direction
+        controls.target.set(controls.target.x, ty, controls.target.z);
+        const newPos = controls.target.clone().add(direction.clone().multiplyScalar(radius));
+        camera.position.copy(newPos);
+        camera.updateProjectionMatrix();
+        controls.update();
+
+        if (u < 1) requestAnimationFrame(animate as any);
+      };
+      requestAnimationFrame(animate as any);
+    } catch {
+      /* no-op */
+    }
+  };
+
+  useEffect(() => {
+    // Trigger only for sufficiently tall buildings; still handle 60m-200m+
+    if (typeof buildingHeight === 'number' && buildingHeight >= 60) {
+      // Delay a tick to ensure controls are mounted
+      const id = setTimeout(() => fitCameraToHeight(buildingHeight), 0);
+      return () => clearTimeout(id);
+    }
+  }, [buildingHeight]);
 
   // Keep minutes aligned to slider without drifting
   const [timeMinutes, setTimeMinutes] = useState(() => {
@@ -608,11 +676,13 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
         />
 
         <OrbitControls
+          ref={controlsRef}
           enablePan
           enableZoom
           enableRotate
           minDistance={5}
-          maxDistance={100}
+          // maxDistance is updated dynamically in fitCameraToHeight for tall buildings
+          maxDistance={Math.max(100, buildingHeight * 3)}
           target={[0, Math.max(1, buildingHeight / 2), 0]}
         />
       </Canvas>
