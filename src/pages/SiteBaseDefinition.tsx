@@ -5,6 +5,7 @@ import { SimpleCanvas } from '@/components/SimpleCanvas';
 import { TopViewCanvas } from '@/components/TopViewCanvas';
 import { Export3DModal } from '@/components/Export3DModal';
 import { ThreeScene } from '@/components/ThreeScene';
+import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { useShapeStore } from '@/stores/shapeStore';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sun, Plus } from 'lucide-react';
@@ -69,6 +70,7 @@ export const SiteBaseDefinition = () => {
                 Height: {baseHeight}m | Shapes: {shapes.length}
                 {obstacles.length > 0 && ` | Obstacles: ${obstacles.length}`}
               </div>
+              <DarkModeToggle variant="futuristic" size="md" />
             </div>
           </div>
         </div>
@@ -95,13 +97,16 @@ export const SiteBaseDefinition = () => {
             <h1 className="text-2xl font-bold text-foreground">Solar Site Designer</h1>
             <span className="text-sm text-muted-foreground ml-2">Site Base Definition</span>
           </div>
-          <Button
-            onClick={() => setShowExportModal(true)}
-            className="bg-primary hover:bg-primary/90"
-            disabled={shapes.length === 0}
-          >
-            Export to 3D
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setShowExportModal(true)}
+              className="bg-primary hover:bg-primary/90"
+              disabled={shapes.length === 0}
+            >
+              Export to 3D
+            </Button>
+            <DarkModeToggle variant="futuristic" size="md" />
+          </div>
         </div>
       </div>
       {/* Main Content */}
