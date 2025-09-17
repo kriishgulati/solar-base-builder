@@ -684,6 +684,23 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           // maxDistance is updated dynamically in fitCameraToHeight for tall buildings
           maxDistance={Math.max(100, buildingHeight * 3)}
           target={[0, Math.max(1, buildingHeight / 2), 0]}
+          // Enhanced touch controls for mobile
+          touches={{
+            ONE: 1, // Single finger for rotation
+            TWO: 2, // Two fingers for zoom and pan
+          }}
+          mouseButtons={{
+            LEFT: 0, // Left mouse button for rotation
+            MIDDLE: 1, // Middle mouse button for zoom
+            RIGHT: 2, // Right mouse button for pan
+          }}
+          // Improved touch sensitivity
+          rotateSpeed={0.5}
+          zoomSpeed={0.8}
+          panSpeed={0.8}
+          // Enable pinch-to-zoom on mobile
+          enableDamping={true}
+          dampingFactor={0.05}
         />
       </Canvas>
 

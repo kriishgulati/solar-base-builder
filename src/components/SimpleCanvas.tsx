@@ -82,8 +82,8 @@ export const SimpleCanvas = ({
 
     // Draw grid centered on canvas center
     ctx.strokeStyle = "hsl(var(--border))";
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.2;
+    ctx.lineWidth = isTouchDevice ? 1.5 : 1; // Thicker lines on mobile
+    ctx.globalAlpha = isTouchDevice ? 0.3 : 0.2; // More visible on mobile
     const gridSize = PIXELS_PER_METER * canvasScale;
     const centerX =
       canvas.width / 2 + canvasOffset.x * PIXELS_PER_METER * canvasScale;
@@ -898,7 +898,7 @@ export const SimpleCanvas = ({
   const selectedShape = shapes.find((s) => s.id === selectedShapeId);
 
   return (
-    <Card className="h-full bg-canvas-bg shadow-panel relative overflow-hidden">
+    <Card className="h-full bg-canvas-bg shadow-panel relative overflow-hidden min-h-0">
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
         <Button variant="outline" size="sm" onClick={() => handleZoom("in")}>
@@ -911,6 +911,19 @@ export const SimpleCanvas = ({
           <RotateCcw size={16} />
         </Button>
       </div>
+
+      {/* Mobile Touch Instructions */}
+      {isTouchDevice && (
+        <div className="absolute top-4 left-4 z-10 bg-card/90 backdrop-blur-sm p-3 rounded-lg shadow-tool border max-w-xs">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div className="font-medium text-foreground">Touch Controls:</div>
+            <div>• Tap to select shapes</div>
+            <div>• Double-tap to toggle multi-select</div>
+            <div>• Drag to move shapes</div>
+            <div>• Pinch to zoom (coming soon)</div>
+          </div>
+        </div>
+      )}
 
       {/* Shape Info Panel */}
       {selectedShape && (

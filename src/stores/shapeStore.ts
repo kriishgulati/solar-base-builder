@@ -121,11 +121,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
   baseHeight: 3, // Default height
   baseFacingAngle: 0,
   baseFacing: "N",
-  shapeMergeEnabled: false,
-  obstacleMode: false,
-  baseHeight: 3, // Default height
-  baseFacingAngle: 0,
-  baseFacing: "N",
   // grid & zoom defaults
   gridSize: 1,
   zoomStep: 1.2,
@@ -256,9 +251,6 @@ export const useShapeStore = create<ShapeStore>((set, get) => ({
     set({ canvasOffset: offset });
   },
 
-  setShapeMergeEnabled: (enabled) => {
-    set({ shapeMergeEnabled: enabled });
-  },
   setShapeMergeEnabled: (enabled) => {
     set({ shapeMergeEnabled: enabled });
   },
