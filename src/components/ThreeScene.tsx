@@ -459,6 +459,16 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
   const [playing, setPlaying] = useState(false);
   const [aggregatePercent, setAggregatePercent] = useState<number>(0);
   const controlsRef = useRef<any>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState<boolean>(false);
+
+  // Track viewport size to tailor touch behavior for small screens only
+  useEffect(() => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(max-width: 1024px)') : null;
+    const update = () => setIsSmallScreen(!!mq?.matches);
+    update();
+    mq?.addEventListener('change', update);
+    return () => mq?.removeEventListener('change', update);
+  }, []);
 
   // Smoothly adjust camera distance based on building height so it fits the view
   // Runs when 3D scene mounts or the buildingHeight changes
@@ -684,11 +694,17 @@ export const ThreeScene = ({ shapes, obstacles, buildingHeight }: ThreeSceneProp
           // maxDistance is updated dynamically in fitCameraToHeight for tall buildings
           maxDistance={Math.max(100, buildingHeight * 3)}
           target={[0, Math.max(1, buildingHeight / 2), 0]}
-          // Enhanced touch controls for mobile
-          touches={{
-            ONE: 1, // Single finger for rotation
-            TWO: 2, // Two fingers for zoom and pan
-          }}
+          // Tailored touch controls: on small screens, require two-finger drag to rotate
+          touches={isSmallScreen
+            ? {
+                ONE: THREE.TOUCH.PAN,
+                TWO: THREE.TOUCH.DOLLY_ROTATE,
+              }
+            : {
+                ONE: THREE.TOUCH.ROTATE,
+                TWO: THREE.TOUCH.DOLLY_PAN,
+              }
+          }
           mouseButtons={{
             LEFT: 0, // Left mouse button for rotation
             MIDDLE: 1, // Middle mouse button for zoom

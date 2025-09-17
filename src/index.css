@@ -160,6 +160,11 @@ All colors MUST be HSL.
     overflow: hidden;
   }
 
+  /* Safe area helper for mobile bottom bars */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   /* Landscape-focused tweaks for small screens */
   @media screen and (max-width: 1024px) {
     html, body {
@@ -177,6 +182,11 @@ All colors MUST be HSL.
     .layout-sidebar {
       min-width: 200px;
       max-width: 300px;
+    }
+
+    .layout-main {
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
   }
 }
